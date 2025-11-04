@@ -1,0 +1,1433 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.8.25">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Petteri Hyvärinen">
+<meta name="dcterms.date" content="2025-11-04">
+
+<title>Bayesian Ranking &amp; Selection for listening tests – posts by Petteri Hyvärinen</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+  margin-bottom: 0em;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.min.js" integrity="sha384-ZvpUoO/+PpLXR1lu4jmpXWu80pZlYUAfxl5NsBMWOEPSjUn/6Z/hRTt8+pR6L4N2" crossorigin="anonymous"></script><script src="../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../">
+<script src="../../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../../site_libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../site_libs/quarto-html/quarto-syntax-highlighting-7b89279ff1a6dce999919e0e67d4d9ec.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
+<link href="../../site_libs/quarto-html/quarto-syntax-highlighting-dark-707d8167ce6003fca903bfe2be84ab7f.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
+<link href="../../site_libs/quarto-html/quarto-syntax-highlighting-7b89279ff1a6dce999919e0e67d4d9ec.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
+<script src="../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../site_libs/bootstrap/bootstrap-12138b03191e654913ca0d0eced3cf8d.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="../../site_libs/bootstrap/bootstrap-dark-d6ffb8a8f49a6d338808a980a4a8b8ea.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="light">
+<link href="../../site_libs/bootstrap/bootstrap-12138b03191e654913ca0d0eced3cf8d.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+<script src="https://cdn.jsdelivr.net/npm/requirejs@2.3.6/require.min.js" integrity="sha384-c9c+LnTbwQ3aujuU7ULEPVvgLs+Fn6fJUvIGTsuu1ZcCf11fiEubah0ttpca4ntM sha384-6V1/AdqZRWk1KAlWbKBlGhN7VG4iE/yAZcO6NZPMF8od0vukrvr0tg4qY6NSrItx" crossorigin="anonymous"></script>
+
+<script type="application/javascript">define('jquery', [],function() {return window.jQuery;})</script>
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+<link rel="stylesheet" href="../../styles.css">
+<meta property="og:title" content="Bayesian Ranking &amp; Selection for listening tests – posts by Petteri Hyvärinen">
+<meta property="og:description" content="Blog posts by Petteri Hyvärinen">
+<meta property="og:image" content="https://petterihyvarinen.fi/blog/posts/bayesian-mushra/mushra-screenshot-article.png">
+<meta property="og:site_name" content="posts by Petteri Hyvärinen">
+<meta property="og:image:height" content="832">
+<meta property="og:image:width" content="1553">
+</head>
+
+<body class="nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top quarto-banner">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a href="../../index.html" class="navbar-brand navbar-brand-logo">
+    </a>
+    <a class="navbar-brand" href="../../index.html">
+    <span class="navbar-title">posts by Petteri Hyvärinen</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll ms-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="https://petterihyvarinen.fi/"> 
+<span class="menu-text">About</span></a>
+  </li>  
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<header id="title-block-header" class="quarto-title-block default page-columns page-full">
+  <div class="quarto-title-banner page-columns page-full">
+    <div class="quarto-title column-body">
+      <h1 class="title">Bayesian Ranking &amp; Selection for listening tests</h1>
+                                <div class="quarto-categories">
+                <div class="quarto-category">bayesian</div>
+                <div class="quarto-category">python</div>
+                <div class="quarto-category">statistics</div>
+              </div>
+                  </div>
+  </div>
+    
+  
+  <div class="quarto-title-meta">
+
+      <div>
+      <div class="quarto-title-meta-heading">Author</div>
+      <div class="quarto-title-meta-contents">
+               <p>Petteri Hyvärinen </p>
+            </div>
+    </div>
+      
+      <div>
+      <div class="quarto-title-meta-heading">Published</div>
+      <div class="quarto-title-meta-contents">
+        <p class="date">November 4, 2025</p>
+      </div>
+    </div>
+    
+      
+    </div>
+    
+  
+  </header><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#listening-test-statistics" id="toc-listening-test-statistics" class="nav-link active" data-scroll-target="#listening-test-statistics">Listening test statistics</a>
+  <ul class="collapse">
+  <li><a href="#ranking-selection" id="toc-ranking-selection" class="nav-link" data-scroll-target="#ranking-selection">Ranking &amp; Selection</a></li>
+  </ul></li>
+  <li><a href="#the-mushra-test" id="toc-the-mushra-test" class="nav-link" data-scroll-target="#the-mushra-test">The MUSHRA test</a>
+  <ul class="collapse">
+  <li><a href="#example-data" id="toc-example-data" class="nav-link" data-scroll-target="#example-data">Example data</a></li>
+  </ul></li>
+  <li><a href="#hierarchical-bayesian-model" id="toc-hierarchical-bayesian-model" class="nav-link" data-scroll-target="#hierarchical-bayesian-model">Hierarchical Bayesian model</a>
+  <ul class="collapse">
+  <li><a href="#prior-predictive-checks" id="toc-prior-predictive-checks" class="nav-link" data-scroll-target="#prior-predictive-checks">Prior predictive checks</a></li>
+  <li><a href="#stan-implementation" id="toc-stan-implementation" class="nav-link" data-scroll-target="#stan-implementation">STAN implementation</a></li>
+  <li><a href="#model-fitting" id="toc-model-fitting" class="nav-link" data-scroll-target="#model-fitting">Model fitting</a></li>
+  </ul></li>
+  <li><a href="#posterior-analysis" id="toc-posterior-analysis" class="nav-link" data-scroll-target="#posterior-analysis">Posterior analysis</a>
+  <ul class="collapse">
+  <li><a href="#posterior-predictive-checks" id="toc-posterior-predictive-checks" class="nav-link" data-scroll-target="#posterior-predictive-checks">Posterior predictive checks</a></li>
+  <li><a href="#rs-with-posteriors" id="toc-rs-with-posteriors" class="nav-link" data-scroll-target="#rs-with-posteriors">R&amp;S with posteriors</a></li>
+  <li><a href="#indifference-zone-rs" id="toc-indifference-zone-rs" class="nav-link" data-scroll-target="#indifference-zone-rs">Indifference-zone R&amp;S</a></li>
+  </ul></li>
+  <li><a href="#wrapping-up" id="toc-wrapping-up" class="nav-link" data-scroll-target="#wrapping-up">Wrapping up</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content quarto-banner-title-block" id="quarto-document-content">
+
+
+
+
+
+<p>Sensory evaluation of sound is an essential step in the development of audio and acoustic systems. In sensory evaluation listening tests, assessors listen to different audio <em>systems</em>, such as alternative audio codecs, hardware configurations, loudspeaker layouts, or signal processing methods, and give responses according to the specific listening test task; for example: select the system that appears to have more bass or clarity, or give each system a rating between 0 and 100 for stereo image quality or basic audio quality.</p>
+<p>Results from such tests always involve uncertainty; different listeners may give slightly different ratings to the same system, or even the same listener may give different responses in repeated trials of identical conditions. When interpreting the results and drawing conclusions from the data, this uncertainty is taken into account by statistical analysis. If you’ve ever done statistics on listening test data (or possibly other kinds of sensory evaluation data), you may be familiar with the feeling that the statistical models and methods are not working for you but you are instead working for them—and not getting much in return.</p>
+<p>I suggest that this difficulty with sensory evaluation data and statistics is because the classical statistical testing is geared towards answering different kinds of questions than the ones we’d like to ask about our listening experiment results. But luckily, things can be made easier by using a different statistical framework—ranking &amp; selection (R&amp;S)—where the questions are formulated in ways that fit sensory evaluation tasks perfectly.</p>
+<p>This article is a Jupyter notebook, rendered to HTML with Quarto. It contains the Python code for running the analysis and creating the figures and tables. The code cells are hidden by default, to keep the text readable—the code cells can be expanded by clicking on them. In addition to standard scientific Python packages, I’ll use <a href="https://mc-stan.org/">STAN</a> for the bayesian inference via its CmdStanPy python interface.</p>
+<div id="97f3ded4" class="cell" data-execution_count="56">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> scipy <span class="im">import</span> stats</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> scipy.special <span class="im">import</span> expit</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> arviz <span class="im">as</span> az</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> cmdstanpy <span class="im">as</span> csp</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> seaborn <span class="im">as</span> sns</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>plt.rcParams[<span class="st">"figure.dpi"</span>] <span class="op">=</span> <span class="dv">144</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>sns.set_theme(context<span class="op">=</span><span class="st">"notebook"</span>, style<span class="op">=</span><span class="st">"whitegrid"</span>, palette<span class="op">=</span><span class="st">"Set2"</span>)</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="op">%</span>matplotlib inline</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+<section id="listening-test-statistics" class="level1">
+<h1>Listening test statistics</h1>
+<p>A very basic premise in sensory evaluation and related listening tests is that the systems under test are different from each other. If we run a listening test with a bunch of headphones of a certain price point from competing brands, then we <em>know</em> the headphones are physically different and they have been made with different design goals in mind that will undoubtedly affect the acoustics of the product. Or if we compare different lossy audio codecs with various bit rates, then we <em>know</em> that there is less information in the compressed streams than in the original sound, and that the different codecs implement the compression differently. With this premise in mind, the aim of a listening test is then to quantify the differences between systems. We already know the systems are different because we made them so; we want to know <em>how clear</em> are the differences between systems, and quite often, which are the best systems.</p>
+<p>But when it comes time for the statistical analysis of the listening test results, things sometimes get a bit tricky. Instead of getting direct answers to the questions that we are interested in, we instead have to ask, and provide answers to, some completely different questions that we’re not so interested in. In classical statistical testing, such as ANOVA, we would for example test a null hypothesis corresponding to the opposite of our basic premise above: what if, on average, there were no actual differences between the systems—how likely would it then be to see these results you have collected in your listening experiment? And after having conducted the statistical analysis, we could hopefully conclude that it would be very unlikely indeed.</p>
+<p>The statistical analysis would have now informed us that it’s more likely that at least <em>one</em> of the systems under test sounds on average different from the others—in a way that the assessors can reliably report. But we don’t know which system or systems exactly drive this main effect. To know that, we would have to conduct <em>post-hoc</em> tests, constructing new null hypotheses, alternative hypotheses, and statistical tests, at each step hoping to reject statistical formulations that make little sense considering the basic premise. Perhaps it is not that surprising then, that the statistical analysis sometimes feels a bit uncomfortable and unhelpful for our purposes.</p>
+<section id="ranking-selection" class="level2">
+<h2 class="anchored" data-anchor-id="ranking-selection">Ranking &amp; Selection</h2>
+<p>In the statistical framework called ranking and selection (R&amp;S)<span class="citation" data-cites="dudewicz1980 hong2021"><sup><a href="#ref-dudewicz1980" role="doc-biblioref">1</a>,<a href="#ref-hong2021" role="doc-biblioref">2</a></sup></span>, we would instead directly ask questions like <em>“which system is on average the best?”</em> and based on the listening test responses arrive at both an answer as well as a measure of confidence for the answer, such as <em>“system 3 is rated best with probability 96.3%”</em>. Or we can rank the systems based on current assessor responses and ask <em>“starting from the top, how many systems <span class="math inline">\(K\)</span> out of total <span class="math inline">\(N\)</span> do I have to pick to be at least 99.9% certain that one of the systems is really the best?”</em>, with the answer being something between 1 (it is very clear which system is the best) and <span class="math inline">\(N\)</span> (we have no idea which is best, so if we include all systems, the best is one of them with 100% confidence).</p>
+<p>Or, as put by Gibbons <em>et al.</em> (1979)<span class="citation" data-cites="gibbons1979"><sup><a href="#ref-gibbons1979" role="doc-biblioref">3</a></sup></span>:</p>
+<blockquote class="blockquote">
+<p>More generally, ranking and selection procedures are statistical techniques for comparing the parameters of some <span class="math inline">\(k\)</span> populations under the assumption that these parameters are not all the same.</p>
+</blockquote>
+<p>In other words, R&amp;S seems like a perfect match for our sensory evaluation data. We get rid of the artificial null hypotheses and their testing and rejection, and instead go directly at the questions we actually want answered.</p>
+<p>Another good match for R&amp;S is Bayesian inference, where we would model “the parameters of some <span class="math inline">\(k\)</span> populations” as distributions of random variables, and conduct our statistical analysis using those distributions. This approach is called Bayesian R&amp;S and it is used already in fields like operations research and machine learning. Bringing in the bayesian framework gives us a lot more tools to work with. After formulating our listening test as a bayesian statistical model, we can do bayesian experimental design (BED) to optimise the listening test, for example by using a sequential design, where we pick the next test item based on the information value we would expect to gain by testing each particular item<span class="citation" data-cites="chick2010 frazier2008"><sup><a href="#ref-chick2010" role="doc-biblioref">4</a>,<a href="#ref-frazier2008" role="doc-biblioref">5</a></sup></span>.</p>
+<p>Next, I’ll show how Bayesian R&amp;S could be employed in the statistical analysis of results of the widely-used MUSHRA listening test format.</p>
+</section>
+</section>
+<section id="the-mushra-test" class="level1">
+<h1>The MUSHRA test</h1>
+<p>The ITU-R BS.1534-3<span class="citation" data-cites="itur-bs1534"><sup><a href="#ref-itur-bs1534" role="doc-biblioref">6</a></sup></span> recommendation defines the “<strong>Mu</strong>lti <strong>S</strong>timulus test with <strong>H</strong>idden <strong>R</strong>eference and <strong>A</strong>nchor (<strong>MUSHRA</strong>)” method, which is intended for listening tests of intermediate-quality systems. In the test, assessors listen to sound clips which are processed through each system, allowing direct comparison of the systems in terms of sound coloration, stereo image, or some other relevant attribute. For each sound clip, a high-quality reference (e.g., a lossless audio sample), a low-quality anchor (think: low-passed, “lo-fi” sound sample), and the actual audio systems under comparison are evaluated, and listeners rate them on a 0–100 scale, where 100 corresponds to the quality of the reference system and 0 corresponds to the quality of the low-quality anchor.</p>
+<p>Since MUSHRA is intended for <em>intermediate-quality</em> systems, it means that the differences between systems should be quite obvious. It is not a test design meant to tease out the smallest, almost imperceptible differences between reference-grade hifi systems. Instead, the point is to have a straight-forward and relatively fast way for rating multiple test items. For statistical demonstration purposes, this is great, since for a MUSHRA test it is really clear to both the experimenter and the assessor that there are differences between systems.</p>
+<p>A popular choice for running a MUSHRA test is by using the browser-based webMUSHRA framework<span class="citation" data-cites="Schoeffler2018"><sup><a href="#ref-Schoeffler2018" role="doc-biblioref">7</a></sup></span>. <a href="#fig-mushra-ui" class="quarto-xref">Figure&nbsp;1</a> shows the experiment user interface, where ratings for each test item are given with sliders. The assessor can switch immediately between different test items, and it’s possible to loop a specific section of the sound clip. The systems are blinded, meaning that it is not known which test item corresponds to which system, and their ordering in the user interface is random. There is a labeled reference system, which the other systems are compared to, but also one of the blinded test items is the hidden reference—and this test item should be rated at 100.</p>
+<div id="fig-mushra-ui" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-mushra-ui-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="mushra-screenshot-article.png" class="img-fluid figure-img" style="width:100.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-mushra-ui-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;1: webMUSHRA user interface
+</figcaption>
+</figure>
+</div>
+<section id="example-data" class="level2">
+<h2 class="anchored" data-anchor-id="example-data">Example data</h2>
+<p>We have the results of a MUSHRA listening test that investigated spatial audio quality, in which <span class="math inline">\(N = 15\)</span> listeners <span class="math inline">\(k = 1 \ldots N\)</span> evaluated <span class="math inline">\(M = 6\)</span> systems <span class="math inline">\(j = 1 \ldots 6\)</span> (of which system 1 is the reference and system 6 the anchor) and gave them ratings <span class="math inline">\(r_{kj} \in [0,  100]\)</span>. The responses are shown in <a href="#fig-rawdata" class="quarto-xref">Figure&nbsp;2</a>.</p>
+<p>Here we will only consider ratings for a single sound clip, to keep the statistical model simple enough. For actual listening experiment data, where we have multiple conditions and possibly repetitions of items, we would add more parameters to the model, accounting for different experimental conditions and also listener-specific effects.</p>
+<div id="cell-fig-rawdata" class="cell" data-execution_count="57">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>ratings <span class="op">=</span> np.loadtxt(<span class="st">"01-listening_test_results.csv"</span>, delimiter<span class="op">=</span><span class="st">";"</span>)</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>participants <span class="op">=</span> np.arange(ratings.shape[<span class="dv">0</span>], dtype<span class="op">=</span><span class="bu">int</span>) <span class="op">+</span> <span class="dv">1</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>participants <span class="op">=</span> np.repeat(participants, <span class="dv">6</span>).flatten()</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>system_ids <span class="op">=</span> np.arange(ratings.shape[<span class="dv">1</span>], dtype<span class="op">=</span><span class="bu">int</span>) <span class="op">+</span> <span class="dv">1</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>systems <span class="op">=</span> np.tile(system_ids, (<span class="dv">15</span>,<span class="dv">1</span>))</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>ratings <span class="op">=</span> ratings.flatten()</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>systems <span class="op">=</span> systems.flatten()</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>df <span class="op">=</span> pd.DataFrame({<span class="st">"ratings"</span>: ratings, <span class="st">"systems"</span>: systems, <span class="st">"listeners"</span>: participants})</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>fig, ax <span class="op">=</span> plt.subplots(<span class="dv">1</span>,<span class="dv">1</span>,figsize<span class="op">=</span>(<span class="dv">4</span>,<span class="dv">3</span>))</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>fig.set_layout_engine(<span class="st">'tight'</span>)</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>fig.subplots_adjust(left<span class="op">=</span><span class="fl">1.5</span><span class="op">/</span><span class="dv">7</span>, right<span class="op">=</span><span class="fl">5.5</span><span class="op">/</span><span class="dv">7</span>)</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>sns.stripplot(df, x<span class="op">=</span><span class="st">"systems"</span>, y<span class="op">=</span><span class="st">"ratings"</span>, hue<span class="op">=</span><span class="st">"systems"</span>, ax<span class="op">=</span>ax, </span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>              palette<span class="op">=</span><span class="st">"Set2"</span>, legend<span class="op">=</span><span class="va">False</span>, linewidth<span class="op">=</span><span class="fl">1.0</span>)</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>ax.set_xlabel(<span class="st">"System"</span>)</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>ax.set_ylabel(<span class="st">"Rating"</span>)</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>ax.set_title(<span class="vs">r"Ratings </span><span class="dv">$</span><span class="vs">r_{kj}</span><span class="dv">$</span><span class="vs">"</span>)<span class="op">;</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output cell-output-display">
+<div id="fig-rawdata" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-rawdata-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="mushra_bayesian_files/figure-html/fig-rawdata-output-1.png" class="img-fluid figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-rawdata-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;2: Responses from 15 participants in a MUSHRA test with four systems under test (systems 2–5), as well as a hidden reference (system 1) and anchor (system 6).
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>We see that the reference system 1 has been correctly identified by the listeners every time, and apart from two answers also the anchor 6 has been consistently rated at 0. Systems 4 and 5 perform clearly worse than systems 2 and 3. This kind of data is a bit cumbersome if we would for example want to do ANOVA directly on the raw ratings; the responses are limited between 0 and 100, so the ratings tend to “pack” at the extremes, and the assumption of homogeneity of variances (of the residuals) is not fulfilled. As with the bayesian model in the next section, also ANOVA can be extended with GLMs and other approaches that mitigate these issues, but with ANOVA, in the end we would still be doing hypothesis testing and not R&amp;S.</p>
+</section>
+</section>
+<section id="hierarchical-bayesian-model" class="level1">
+<h1>Hierarchical Bayesian model</h1>
+<p>We model the ratings <span class="math inline">\(r_{kj}\)</span> using a <a href="https://en.wikipedia.org/wiki/Beta_distribution">Beta distribution</a>. They are first scaled to the interval [0,1], and the resulting values <span class="math inline">\(y_{kj}\)</span> are modeled as beta-distributed random variables. The main reason for using a beta distribution is that others use it for this kind of data as well. But it is a natural choice in that it is defined on an interval [0, 1] as opposed to the full real line (<span class="math inline">\(-\infty\)</span>, <span class="math inline">\(+\infty\)</span>) as in the case of e.g.&nbsp;the normal distribution or the positive real line (0, <span class="math inline">\(+\infty\)</span>) as for gamma and <span class="math inline">\(\chi^2\)</span> distributions, and so it is a good choice for bounded scale data. The beta distribution also appears in order statistics; if we draw a sample from a uniform distribution, then the order statistics of the sample follow a beta distribution. If in a listening test we have listeners using the full range of the scale, then the results might not be too far from a uniform distribution, and it sounds reasonable that a beta distribution could work here.</p>
+<p>As mentioned earlier, we run the listening test with the assumption that the sound samples do not sound the same and that the distribution of ratings for each system will differ from the others. In the model, we will account for this by allowing the responses for each system <span class="math inline">\(j\)</span> to have individual shape parameters <span class="math inline">\(\alpha_j\)</span> and <span class="math inline">\(\beta_j\)</span> for the beta distribution. Here we will reparametrize the beta distribution <span class="math inline">\(\mathrm{Beta}(\alpha_j, \beta_j)\)</span> using <span class="math inline">\(\alpha_j = \mu_j \phi_j\)</span> and <span class="math inline">\(\beta_j = (1 - \mu_j) \phi_j\)</span>. In this format, the <span class="math inline">\(\mu_j\)</span> corresponds to the system-specific mean of the beta distribution on [0, 1] and <span class="math inline">\(\phi_j\)</span> determines the “precision” of the beta distribution, i.e., in practice how tightly the distribution is concentrated near the mean <span class="math inline">\(\mu_j\)</span>. A high value of <span class="math inline">\(\phi_j\)</span> means that the ratings given by different listeners for system <span class="math inline">\(j\)</span> are very close to each other; a low value of <span class="math inline">\(\phi_j\)</span>, in turn, means that the ratings are spread more widely over [0, 1].</p>
+<p>Since we want to restrict the <span class="math inline">\(\mu_j\)</span> also to the interval [0, 1], we will model it as a logit-normally distributed random variable, meaning that the logit of <span class="math inline">\(\mu_j\)</span> has a normal distribution. In practice, we set <span class="math inline">\(\mathrm{logit}(\mu_j) = \mu_0 + \alpha_j\)</span>, where <span class="math inline">\(\mu_0\)</span> is term corresponding to the overall mean rating of all systems, and <span class="math inline">\(\alpha_j\)</span> corresponds to the average system-specific deviation from the overall mean, and set normal priors for <span class="math inline">\(\mu_j\)</span> and <span class="math inline">\(\alpha_j\)</span>. The logit acts here as a link function, as with generalized linear models (GLMs).</p>
+<p>The hierarchical model in full is: <span id="eq-model"><span class="math display">\[
+\begin{aligned}
+y_{kj} &amp;\sim \mathrm{Beta}(\mu_j \phi_j,\; (1 - \mu_j)\phi_j), \\
+\mathrm{logit}(\mu_j) &amp;= \mu_0 + \alpha_j, \\
+\mu_0 &amp;\sim \mathcal{N}(0, 1), \\
+\alpha_j &amp;\sim \mathcal{N}(0, \sigma_\alpha^2), \\
+\sigma_\alpha^2 &amp;\sim \mathrm{Inv\text{-}Gamma}(3, 1), \\
+\phi_j &amp;\sim \mathrm{Gamma}(2, 0.1),
+\end{aligned}
+\tag{1}\]</span></span> where <span class="math inline">\(\sigma_{\alpha}^2\)</span> describes uncertainty in the systems’ means on the logit scale and the <span class="math inline">\(\phi_j\)</span> have a Gamma prior. In Bayesian terms, the parameters <span class="math inline">\(\boldsymbol{\theta}\)</span> of the hierarchical model are <span class="math inline">\(\mu_j\)</span>, <span class="math inline">\(\mu_0\)</span>, <span class="math inline">\(\alpha_j\)</span>, and <span class="math inline">\(\phi_j\)</span>, which determine the conditional likelihood <span class="math inline">\(p(\boldsymbol{y}|\boldsymbol{\theta})\)</span> of the observations <span class="math inline">\(\boldsymbol{y} = {y_{kj}}\)</span>. The distributions of the parameters <span class="math inline">\(\boldsymbol{\theta}\)</span> are called prior distributions, and they in turn may depend on hyperparameters <span class="math inline">\(\boldsymbol{\eta}\)</span> (e.g., <span class="math inline">\(\sigma_{\alpha}^2\)</span>).</p>
+<p>In Bayesian inference, a joint posterior distribution <span class="math inline">\(p(\boldsymbol{\theta},\boldsymbol{\eta}|\boldsymbol{y})\)</span> is derived for the parameters and hyperparameters using Bayes’ rule: <span id="eq-bayes"><span class="math display">\[
+p(\boldsymbol{\theta},\boldsymbol{\eta}|\boldsymbol{y}) \propto p(\boldsymbol{\eta})p(\boldsymbol{\theta}|\boldsymbol{\eta})p(\boldsymbol{y}|\boldsymbol{\theta}),
+\tag{2}\]</span></span> which describes how likely different values of <span class="math inline">\(\boldsymbol{\theta}\)</span> and <span class="math inline">\(\boldsymbol{\eta}\)</span> are, given the observations <span class="math inline">\(\boldsymbol{y}\)</span>. In Bayesian inference, the statistical analysis focuses on the posterior distributions of the parameters.</p>
+<section id="prior-predictive-checks" class="level2">
+<h2 class="anchored" data-anchor-id="prior-predictive-checks">Prior predictive checks</h2>
+<p>To have an idea of what the model (<a href="#eq-model" class="quarto-xref">1</a>) does, and whether the priors we have chosen make any sense, it is a good idea to take a look at the prior predictive distributions. Here, no data is yet analysed—we only want to take the prior distributions as they are and see how the parameters and predictive distributions for <span class="math inline">\(y_{kj}\)</span> look like with those values. We will now draw random samples from the prior and hyperprior distributions and use those random values as parameters for drawing samples from the beta distribution.</p>
+<p>The point is to see if the distributions of <span class="math inline">\(\mu_j\)</span> and <span class="math inline">\(y_{kj}\)</span> make sense given our experimental design. It could be for example that our model would <em>a priori</em> result in distributions that are focused on the extreme ends of the scale: to 0 and 1, without any probability mass in between. This would mean that before seeing any data, the model expects that all ratings would most likely be either of value 0 or 100 and that it would be extremely rare to see any ratings of intermediate values. Clearly, this is not what we expect, but rather we assume that ratings should be quite evenly distributed across the scale—and our prior predicitive distributions should then reflect this.</p>
+<div id="a6346e6f" class="cell" data-execution_count="58">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>N <span class="op">=</span> <span class="dv">10000</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>np.random.seed(<span class="dv">123</span>)</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="co"># draw N samples from the prior distributions</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>mu0 <span class="op">=</span> stats.norm.rvs(<span class="dv">0</span>, <span class="dv">1</span>, size<span class="op">=</span>N)</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="co"># the alpha_j prior depends on the hyperprior sigma_alpha, so draw them first ...</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>sigma_alpha <span class="op">=</span> stats.invgamma.rvs(<span class="dv">3</span>, size<span class="op">=</span>N)</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="co"># ... and use the sigma_alpha values to draw alpha_j</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>alpha_j <span class="op">=</span> stats.norm.rvs(<span class="dv">0</span>, sigma_alpha, size<span class="op">=</span>N)</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="co"># note the difference between scipy and stan parameters. Here scale=10, and in stan the 2nd parameter is 0.1 = 1/scale</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>phi_j <span class="op">=</span> stats.gamma.rvs(<span class="dv">2</span>, scale<span class="op">=</span><span class="dv">10</span>, size<span class="op">=</span>N)</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a><span class="co"># we have logit(mu_j) = mu0 + alpha_j, so take the inverse logit (in scipy, expit) to get mu_j</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>mu_j <span class="op">=</span> expit(mu0 <span class="op">+</span> alpha_j)</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a><span class="co"># draw values for y based on the priors</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>y_kj <span class="op">=</span> stats.beta.rvs(mu_j <span class="op">*</span> phi_j, (<span class="dv">1</span> <span class="op">-</span> mu_j)<span class="op">*</span>phi_j, size<span class="op">=</span>N)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+<p>First, let’s look at how the beta distributions look like. Here we draw 15 random pairs of <span class="math inline">\(\mu_j\)</span> and <span class="math inline">\(\phi_j\)</span> parameters from the priors and generate 10000 samples from the beta distribution with those values for predictions of possible <span class="math inline">\(y_{kj}\)</span>.</p>
+<div id="cell-fig-betadist" class="cell" data-execution_count="59">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>sns.set_style(<span class="st">"white"</span>, rc<span class="op">=</span>{<span class="st">"axes.edgecolor"</span>: <span class="st">"0.8"</span>})</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>_, axs <span class="op">=</span> plt.subplots(<span class="dv">3</span>,<span class="dv">5</span>, figsize<span class="op">=</span>(<span class="dv">7</span>, <span class="dv">5</span>), sharey<span class="op">=</span><span class="va">True</span>, gridspec_kw<span class="op">=</span>{<span class="st">"hspace"</span>: <span class="fl">0.2</span>})</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> axi, ax <span class="kw">in</span> <span class="bu">enumerate</span>(axs.flatten()):</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    y_fix <span class="op">=</span> stats.beta.rvs(mu_j[axi] <span class="op">*</span> phi_j[axi], (<span class="dv">1</span> <span class="op">-</span> mu_j[axi])<span class="op">*</span>phi_j[axi], size<span class="op">=</span>N)</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    ax.hist(y_fix, bins<span class="op">=</span><span class="dv">40</span>, density<span class="op">=</span><span class="va">True</span>, histtype<span class="op">=</span><span class="st">"stepfilled"</span>)</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    ax.set_xlim((<span class="op">-</span><span class="fl">0.01</span>,<span class="fl">1.01</span>))</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    ax.set_xticks([<span class="dv">0</span>,<span class="dv">1</span>])</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    ax.tick_params(labelsize<span class="op">=</span><span class="dv">8</span>)</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    ax.xaxis.set_visible(<span class="va">True</span>)</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>    ax.yaxis.set_visible(<span class="va">False</span>)</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>    ax.set_title(<span class="vs">rf"</span><span class="dv">$\m</span><span class="vs">u_j = </span><span class="sc">{</span>mu_j[axi]<span class="sc">:.2f}</span><span class="vs">, </span><span class="er">\</span><span class="vs">phi_j = </span><span class="sc">{</span>phi_j[axi]<span class="sc">:.2f}</span><span class="dv">$</span><span class="vs">"</span>, </span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>                 fontdict<span class="op">=</span>{<span class="st">"fontsize"</span>: <span class="dv">8</span>})</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output cell-output-display">
+<div id="fig-betadist" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-betadist-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="mushra_bayesian_files/figure-html/fig-betadist-output-1.png" class="img-fluid figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-betadist-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;3: Beta distributions with shape parameters <span class="math inline">\(\mu_j\)</span> and <span class="math inline">\(\phi_j\)</span> drawn from the prior distributions
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>We see that the mean values <span class="math inline">\(\mu_j\)</span> go from 0.12 to 0.88 and the precisions <span class="math inline">\(\phi_j\)</span> from 2.45 (very broad distribution in upper right corner) to 50.2 (narrow distribution in lower right corner). The distributions seem plausible in that there are no cases where the responses would for example be concentrated on some single value, and there is also good variability in the shapes of the distributions such that many different kinds of response profiles are plausible with the priors. Scale effects also appear to be taken into account, since as the mean gets closer to either extreme, the values start to “pack” at the boundaries, as we would also expect to happen for the actual ratings.</p>
+<p>Looking at the prior distribution for <span class="math inline">\(\mu_j\)</span>, we see that the means are more concentrated towards the center of the scale. This could be interpreted as a conservative prior; it is less likely to have systems with means at the very extremes. If instead of looking at the distributions of <span class="math inline">\(y_{kj}\)</span> obtained with fixed parameters as in <a href="#fig-betadist" class="quarto-xref">Figure&nbsp;3</a>, we look at how the <span class="math inline">\(y_{kj}\)</span> are distributed across all possible prior draws, we see that the simulated ratings are quite evenly distributed across the full scale with a bit more values in the middle, and also clear peaks at the extreme ends of the scale.</p>
+<p>As very general prior assumptions, these distributions look ok—people are usually more likely to give intermediate ratings that extreme values—but depending on the specific situation, it could make sense to fine-tune the priors. In a MUSHRA test, the midpoint of the scale does not actually correspond to some neutral value. Instead, the labels on the scale are “excellent”, “good”, “fair”, “poor”, and “bad”, and thus the midpoint would fall within the range labelled as “fair”. There can be language factors or cultural factors which might have slight effects regarding where a “neutral” answer would go on this scale; does “good” mean “ok”, and how much worse is “bad” than “poor”? So, depending on the context, one might adjust the priors for example so that higher ratings would be more likely. This would not have a dramatic effect on the results, however, since as actual observations are fitted to the model, strong evidence will always outweigh these weakly informative priors.</p>
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>sns.set_style(<span class="st">"ticks"</span>)</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>sns.set_palette(<span class="st">"Set2"</span>)</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>fig1, ax <span class="op">=</span> plt.subplots(<span class="dv">1</span>,<span class="dv">1</span>, figsize<span class="op">=</span>(<span class="dv">3</span>,<span class="dv">2</span>))</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>ax.hist(mu_j, bins<span class="op">=</span><span class="dv">40</span>, density<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>ax.set_title(<span class="vs">r"Prior predictive distribution for </span><span class="dv">$\m</span><span class="vs">u_j</span><span class="dv">$</span><span class="vs">"</span>)</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>sns.despine()</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>fig2, ax <span class="op">=</span> plt.subplots(<span class="dv">1</span>,<span class="dv">1</span>, figsize<span class="op">=</span>(<span class="dv">3</span>,<span class="dv">2</span>))</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>ax.hist(y_kj, bins<span class="op">=</span><span class="dv">40</span>, density<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>ax.set_title(<span class="vs">r"Prior predictive distribution for </span><span class="dv">$</span><span class="vs">y_{kj}</span><span class="dv">$</span><span class="vs">"</span>)</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>sns.despine()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div id="fig-mu-pred" class="quarto-layout-panel">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-mu-pred-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="quarto-layout-row">
+<div class="cell-output cell-output-display quarto-layout-cell-subref quarto-layout-cell" data-ref-parent="fig-mu-pred" style="flex-basis: 50.0%;justify-content: flex-start;">
+<div id="fig-mu-pred-1" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-subfloat-fig figure">
+<div aria-describedby="fig-mu-pred-1-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="mushra_bayesian_files/figure-html/fig-mu-pred-output-1.png" class="img-fluid figure-img" data-ref-parent="fig-mu-pred">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-subfloat-caption quarto-subfloat-fig" id="fig-mu-pred-1-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+(a) Distribution of system-specific means for beta distribution
+</figcaption>
+</figure>
+</div>
+</div>
+<div class="cell-output cell-output-display quarto-layout-cell-subref quarto-layout-cell" data-ref-parent="fig-mu-pred" style="flex-basis: 50.0%;justify-content: flex-start;">
+<div id="fig-mu-pred-2" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-subfloat-fig figure">
+<div aria-describedby="fig-mu-pred-2-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="mushra_bayesian_files/figure-html/fig-mu-pred-output-2.png" class="img-fluid figure-img" data-ref-parent="fig-mu-pred">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-subfloat-caption quarto-subfloat-fig" id="fig-mu-pred-2-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+(b) Distribution of predicted observations
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-mu-pred-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;4: Prior predictive distributions
+</figcaption>
+</figure>
+</div>
+</section>
+<section id="stan-implementation" class="level2">
+<h2 class="anchored" data-anchor-id="stan-implementation">STAN implementation</h2>
+<p>The model in <a href="#eq-model" class="quarto-xref">Equation&nbsp;1</a> was implemented using STAN. The model specification is given below. STAN uses the MCMC method (<em>Markov Chain Monte Carlo</em>) to numerically solve the posterior distribution — by simulating a sufficient number of samples from the posterior distribution implied by the model, the distribution can be approximated to the desired accuracy.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6"><pre class="sourceCode stan code-with-copy"><code class="sourceCode stan"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Hierarchical Beta regression for MUSHRA scores</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> {</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">int</span>&lt;<span class="kw">lower</span>=<span class="dv">1</span>&gt; N;                   <span class="co">// total observations</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">int</span>&lt;<span class="kw">lower</span>=<span class="dv">1</span>&gt; S;                   <span class="co">// number of systems</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">array</span>[N] <span class="dt">int</span>&lt;<span class="kw">lower</span>=<span class="dv">1</span>&gt; system_id;  <span class="co">// system id of each observation</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>  <span class="dt">array</span>[N] <span class="dt">real</span>&lt;<span class="kw">lower</span>=<span class="dv">0</span>,<span class="kw">upper</span>=<span class="dv">1</span>&gt; y; <span class="co">// rescaled scores in (0,1)</span></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a><span class="kw">parameters</span> {</span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>  <span class="dt">real</span> mu_0;                           <span class="co">// global intercept on logit scale</span></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>  <span class="dt">array</span>[S] <span class="dt">real</span> alpha_j;               <span class="co">// system offsets (logit scale)</span></span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>  <span class="dt">real</span>&lt;<span class="kw">lower</span>=<span class="dv">0</span>&gt; sigma_alpha;           <span class="co">// sd for system effects</span></span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>  <span class="dt">array</span>[S] <span class="dt">real</span>&lt;<span class="kw">lower</span>=<span class="dv">0</span>&gt; phi_j;        <span class="co">// Beta precision</span></span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a><span class="kw">transformed parameters</span> {</span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a>  <span class="co">// linear predictor on logit scale for each observation</span></span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a>  <span class="dt">vector</span>[N] eta;</span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (n <span class="cf">in</span> <span class="dv">1</span>:N) {</span>
+<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a>    eta[n] = mu_0 + alpha_j[system_id[n]];</span>
+<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-26"><a href="#cb6-26" aria-hidden="true" tabindex="-1"></a><span class="kw">model</span> {</span>
+<span id="cb6-27"><a href="#cb6-27" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Priors</span></span>
+<span id="cb6-28"><a href="#cb6-28" aria-hidden="true" tabindex="-1"></a>  mu_0 ~ normal(<span class="dv">0</span>, <span class="dv">1</span>);</span>
+<span id="cb6-29"><a href="#cb6-29" aria-hidden="true" tabindex="-1"></a>  alpha_j ~ normal(<span class="dv">0</span>, sigma_alpha);</span>
+<span id="cb6-30"><a href="#cb6-30" aria-hidden="true" tabindex="-1"></a>  sigma_alpha ~ inv_gamma(<span class="dv">3</span>, <span class="dv">1</span>);</span>
+<span id="cb6-31"><a href="#cb6-31" aria-hidden="true" tabindex="-1"></a>  phi_j ~ gamma(<span class="dv">2</span>, <span class="fl">0.1</span>);</span>
+<span id="cb6-32"><a href="#cb6-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-33"><a href="#cb6-33" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Likelihood: parameterize Beta by mean mu (inv_logit(eta)) and precision phi</span></span>
+<span id="cb6-34"><a href="#cb6-34" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (n <span class="cf">in</span> <span class="dv">1</span>:N) {</span>
+<span id="cb6-35"><a href="#cb6-35" aria-hidden="true" tabindex="-1"></a>    <span class="dt">real</span> mu_j = inv_logit(eta[n]);</span>
+<span id="cb6-36"><a href="#cb6-36" aria-hidden="true" tabindex="-1"></a>    y[n] ~ beta(mu_j * phi_j[system_id[n]], (<span class="dv">1</span> - mu_j) * phi_j[system_id[n]]);</span>
+<span id="cb6-37"><a href="#cb6-37" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb6-38"><a href="#cb6-38" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="model-fitting" class="level2">
+<h2 class="anchored" data-anchor-id="model-fitting">Model fitting</h2>
+<p>We then take the STAN model above and fit the actual observations (see <a href="#fig-rawdata" class="quarto-xref">Figure&nbsp;2</a>) to it. First the ratings <span class="math inline">\(r_{kj}\)</span> are scaled to the interval [0, 1] and those values, along with the information about the system for which that rating was given, are passed to the STAN model. The MCMC runs four separate chains, which are first sampled for some time to warm up and stabilise the chains, and then 5000 draws are taken from each Markov chain for the actual posterior draws.</p>
+<div id="903de4ce" class="cell" data-execution_count="61">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>model <span class="op">=</span> csp.CmdStanModel(stan_file<span class="op">=</span><span class="st">"mushra_simple.stan"</span>)</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="co"># rescale raw scores [0,100] to [0,1] for beta regression</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>eps <span class="op">=</span> <span class="fl">0.5</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>y <span class="op">=</span> (df[<span class="st">"ratings"</span>] <span class="op">+</span> eps) <span class="op">/</span> (<span class="dv">100</span> <span class="op">+</span> <span class="dv">2</span><span class="op">*</span>eps)</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>data <span class="op">=</span> {<span class="st">"N"</span>: df.shape[<span class="dv">0</span>], <span class="st">"S"</span>: df[<span class="st">"systems"</span>].unique().shape[<span class="dv">0</span>], </span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>        <span class="st">"system_id"</span>: df[<span class="st">"systems"</span>], <span class="st">"y"</span>: y}</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>sample <span class="op">=</span> model.sample(data <span class="op">=</span> data, seed <span class="op">=</span> <span class="dv">121</span>,</span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>                      iter_warmup <span class="op">=</span> <span class="dv">5000</span>, iter_sampling <span class="op">=</span> <span class="dv">5000</span>,</span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>                      show_progress <span class="op">=</span> <span class="va">False</span>, show_console <span class="op">=</span> <span class="va">False</span>, fixed_param<span class="op">=</span><span class="va">False</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+<p>Once the MCMC has completed, we can examine the results. First, we check that the simulation chains have converged to the same values for the parameters. This is indicated by the value <code>R_hat</code> in the following table, and quoting <a href="https://mc-stan.org/rstan/reference/Rhat.html">STAN documentation</a>, the <code>R_hat</code> convergence diagnostic …</p>
+<blockquote class="blockquote">
+<p>[…] compares the between- and within-chain estimates for model parameters and other univariate quantities of interest. If chains have not mixed well (ie, the between- and within-chain estimates don’t agree), R-hat is larger than 1. We recommend running at least four chains by default and only using the sample if R-hat is less than 1.05.</p>
+</blockquote>
+<p>All parameters and hyperparameters have an <code>R_hat</code> of 1.0, so all good so far.</p>
+<div id="74fe783c" class="cell" data-execution_count="62">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>df_summary <span class="op">=</span> sample.summary(sig_figs<span class="op">=</span><span class="dv">2</span>)</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>df_summary.iloc[:<span class="dv">15</span>,:]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output cell-output-display" data-execution_count="62">
+<div>
+
+
+<table class="dataframe caption-top table table-sm table-striped small" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">Mean</th>
+<th data-quarto-table-cell-role="th">MCSE</th>
+<th data-quarto-table-cell-role="th">StdDev</th>
+<th data-quarto-table-cell-role="th">MAD</th>
+<th data-quarto-table-cell-role="th">5%</th>
+<th data-quarto-table-cell-role="th">50%</th>
+<th data-quarto-table-cell-role="th">95%</th>
+<th data-quarto-table-cell-role="th">ESS_bulk</th>
+<th data-quarto-table-cell-role="th">ESS_tail</th>
+<th data-quarto-table-cell-role="th">ESS_bulk/s</th>
+<th data-quarto-table-cell-role="th">R_hat</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">lp__</th>
+<td>130.000</td>
+<td>0.0320</td>
+<td>2.70</td>
+<td>2.60</td>
+<td>130.00</td>
+<td>130.000</td>
+<td>140.000</td>
+<td>7200.0</td>
+<td>12000.0</td>
+<td>150.0</td>
+<td>1.0</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">mu_0</th>
+<td>-0.067</td>
+<td>0.0110</td>
+<td>0.69</td>
+<td>0.68</td>
+<td>-1.20</td>
+<td>-0.072</td>
+<td>1.100</td>
+<td>3800.0</td>
+<td>6100.0</td>
+<td>78.0</td>
+<td>1.0</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">alpha_j[1]</th>
+<td>4.600</td>
+<td>0.0110</td>
+<td>0.74</td>
+<td>0.72</td>
+<td>3.30</td>
+<td>4.600</td>
+<td>5.800</td>
+<td>4300.0</td>
+<td>6800.0</td>
+<td>88.0</td>
+<td>1.0</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">alpha_j[2]</th>
+<td>0.900</td>
+<td>0.0110</td>
+<td>0.73</td>
+<td>0.72</td>
+<td>-0.30</td>
+<td>0.900</td>
+<td>2.100</td>
+<td>4100.0</td>
+<td>6900.0</td>
+<td>84.0</td>
+<td>1.0</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">alpha_j[3]</th>
+<td>0.620</td>
+<td>0.0110</td>
+<td>0.72</td>
+<td>0.71</td>
+<td>-0.56</td>
+<td>0.620</td>
+<td>1.800</td>
+<td>4000.0</td>
+<td>6300.0</td>
+<td>82.0</td>
+<td>1.0</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">alpha_j[4]</th>
+<td>-1.200</td>
+<td>0.0120</td>
+<td>0.74</td>
+<td>0.73</td>
+<td>-2.50</td>
+<td>-1.200</td>
+<td>-0.028</td>
+<td>4200.0</td>
+<td>6500.0</td>
+<td>86.0</td>
+<td>1.0</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">alpha_j[5]</th>
+<td>-2.100</td>
+<td>0.0120</td>
+<td>0.75</td>
+<td>0.73</td>
+<td>-3.30</td>
+<td>-2.000</td>
+<td>-0.820</td>
+<td>4100.0</td>
+<td>6900.0</td>
+<td>85.0</td>
+<td>1.0</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">alpha_j[6]</th>
+<td>-3.000</td>
+<td>0.0120</td>
+<td>0.78</td>
+<td>0.76</td>
+<td>-4.30</td>
+<td>-3.000</td>
+<td>-1.800</td>
+<td>4400.0</td>
+<td>7400.0</td>
+<td>90.0</td>
+<td>1.0</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">sigma_alpha</th>
+<td>2.400</td>
+<td>0.0056</td>
+<td>0.68</td>
+<td>0.57</td>
+<td>1.50</td>
+<td>2.200</td>
+<td>3.600</td>
+<td>19000.0</td>
+<td>13000.0</td>
+<td>400.0</td>
+<td>1.0</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">phi_j[1]</th>
+<td>77.000</td>
+<td>0.2000</td>
+<td>30.00</td>
+<td>28.00</td>
+<td>35.00</td>
+<td>73.000</td>
+<td>130.000</td>
+<td>19000.0</td>
+<td>12000.0</td>
+<td>390.0</td>
+<td>1.0</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">phi_j[2]</th>
+<td>4.300</td>
+<td>0.0087</td>
+<td>1.30</td>
+<td>1.30</td>
+<td>2.40</td>
+<td>4.200</td>
+<td>6.800</td>
+<td>23000.0</td>
+<td>14000.0</td>
+<td>470.0</td>
+<td>1.0</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">phi_j[3]</th>
+<td>6.500</td>
+<td>0.0130</td>
+<td>2.00</td>
+<td>2.00</td>
+<td>3.60</td>
+<td>6.300</td>
+<td>10.000</td>
+<td>23000.0</td>
+<td>14000.0</td>
+<td>480.0</td>
+<td>1.0</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">phi_j[4]</th>
+<td>3.600</td>
+<td>0.0080</td>
+<td>1.20</td>
+<td>1.10</td>
+<td>1.90</td>
+<td>3.500</td>
+<td>5.800</td>
+<td>21000.0</td>
+<td>13000.0</td>
+<td>430.0</td>
+<td>1.0</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">phi_j[5]</th>
+<td>6.800</td>
+<td>0.0160</td>
+<td>2.40</td>
+<td>2.30</td>
+<td>3.40</td>
+<td>6.500</td>
+<td>11.000</td>
+<td>22000.0</td>
+<td>12000.0</td>
+<td>440.0</td>
+<td>1.0</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">phi_j[6]</th>
+<td>10.000</td>
+<td>0.0300</td>
+<td>4.20</td>
+<td>4.00</td>
+<td>4.30</td>
+<td>9.500</td>
+<td>18.000</td>
+<td>18000.0</td>
+<td>12000.0</td>
+<td>360.0</td>
+<td>1.0</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
+<p>We can also look at the MCMC samples with <a href="https://python.arviz.org/en/stable/index.html">ArviZ</a> (<a href="#fig-arviz" class="quarto-xref">Figure&nbsp;5</a>), which is a visual tool for working with bayesian models in Python. On the right panel, there are the 5000 individual draws for each chain and on the left panel, the distribution of those drawn values.</p>
+<div id="cell-fig-arviz" class="cell" data-execution_count="63">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>az.style.use(<span class="st">"arviz-doc"</span>)</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>az.plot_trace(sample, figsize<span class="op">=</span>(<span class="dv">5</span>, <span class="dv">7</span>), backend_kwargs<span class="op">=</span>{<span class="st">"dpi"</span>: <span class="dv">144</span>})</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>phi_draws <span class="op">=</span> sample.stan_variable(<span class="st">"phi_j"</span>)</span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>mu0_draws <span class="op">=</span> sample.stan_variable(<span class="st">"mu_0"</span>)</span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>alpha_draws <span class="op">=</span> sample.stan_variable(<span class="st">"alpha_j"</span>)</span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>mu_draws <span class="op">=</span> expit(mu0_draws[:, np.newaxis] <span class="op">+</span> alpha_draws)<span class="op">;</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output cell-output-display">
+<div id="fig-arviz" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-arviz-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="mushra_bayesian_files/figure-html/fig-arviz-output-1.png" class="img-fluid figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-arviz-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;5: MCMC traces for model parameters
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>Looking at the draws for <span class="math inline">\(\mu_0\)</span> (labeled as <strong>mu_0</strong>) there seems to be only one curve on the left, but it is just that the distributions for the four chains agree so well that they are basically overlaid and appear as a single curve. This is as we would hope—if we would get diverging simulation chains and different distributions for the different chains, it would mean that something’s unstable and we couldn’t trust the results. For <span class="math inline">\(\alpha_j\)</span>, <span class="math inline">\(\phi_j\)</span> and <code>eta</code>, the plots show individual curves for each system-specific distribution. In the next step of the analysis, the values of <code>eta</code> are then mapped with the inverse logit to the [0, 1] range, giving us our <span class="math inline">\(\mu_j\)</span>.</p>
+</section>
+</section>
+<section id="posterior-analysis" class="level1">
+<h1>Posterior analysis</h1>
+<section id="posterior-predictive-checks" class="level2">
+<h2 class="anchored" data-anchor-id="posterior-predictive-checks">Posterior predictive checks</h2>
+<p>When we have the full model fitted with data, we’d first like to check that the model makes sense. As we did with the priors, we will now first look at what the full model actually does with the parameter distributions that we’ve obtained. In particular, we want to be sure that the model fits with our observations and has not converged to some strange combination of parameter values.</p>
+<p>Since the parameter values are drawn from a distribution, we can take each draw of parameters and simulate predictions <span class="math inline">\(\tilde{y}\)</span> for each combination. But it’s also possible to take point estimates of the parameter distributions and use those fixed values. Here I’ll use the posterior means for each parameter.</p>
+<div id="cell-fig-posteriorpredictive" class="cell" data-execution_count="72">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>plt.rcParams[<span class="st">"figure.dpi"</span>] <span class="op">=</span> <span class="dv">144</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>sns.set_theme(context<span class="op">=</span><span class="st">"notebook"</span>, style<span class="op">=</span><span class="st">"whitegrid"</span>, palette<span class="op">=</span><span class="st">"Dark2"</span>)</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>fig, axs <span class="op">=</span> plt.subplots(<span class="dv">6</span>,<span class="dv">1</span>, sharex<span class="op">=</span><span class="va">True</span>, figsize<span class="op">=</span>(<span class="dv">3</span>,<span class="dv">6</span>), gridspec_kw<span class="op">=</span>{<span class="st">"hspace"</span>: <span class="dv">0</span>})</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">6</span>):</span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>    mu_i <span class="op">=</span> mu_draws[:, i].mean()</span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>    phi_i <span class="op">=</span> phi_draws[:, i].mean()</span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>    a <span class="op">=</span> mu_i <span class="op">*</span> phi_i</span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>    b <span class="op">=</span> (<span class="dv">1</span> <span class="op">-</span> mu_i) <span class="op">*</span> phi_i</span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>    x <span class="op">=</span> np.linspace(</span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>        stats.beta.ppf(<span class="fl">0.001</span>, a, b), </span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a>        stats.beta.ppf(<span class="fl">0.999</span>, a, b), </span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a>        <span class="dv">100</span></span>
+<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a>    x_samples <span class="op">=</span> stats.beta.pdf(x, a, b)</span>
+<span id="cb10-18"><a href="#cb10-18" aria-hidden="true" tabindex="-1"></a>    axs[i].fill_between(<span class="dv">100</span><span class="op">*</span>x, x_samples <span class="op">/</span> x_samples.<span class="bu">max</span>(), </span>
+<span id="cb10-19"><a href="#cb10-19" aria-hidden="true" tabindex="-1"></a>                        facecolor<span class="op">=</span><span class="ss">f"C</span><span class="sc">{</span>i<span class="sc">}</span><span class="ss">"</span>, alpha<span class="op">=</span><span class="fl">0.3</span>, </span>
+<span id="cb10-20"><a href="#cb10-20" aria-hidden="true" tabindex="-1"></a>                        label<span class="op">=</span><span class="vs">r"</span><span class="dv">$</span><span class="vs">p</span><span class="kw">(</span><span class="ch">\t</span><span class="vs">ilde{y}</span><span class="cf">|</span><span class="dv">\b</span><span class="vs">oldsymbol{y}</span><span class="kw">)</span><span class="dv">$</span><span class="vs">"</span>)</span>
+<span id="cb10-21"><a href="#cb10-21" aria-hidden="true" tabindex="-1"></a>    axs[i].plot(<span class="dv">100</span><span class="op">*</span>x, x_samples <span class="op">/</span> x_samples.<span class="bu">max</span>(), color<span class="op">=</span><span class="ss">f"C</span><span class="sc">{</span>i<span class="sc">}</span><span class="ss">"</span>, </span>
+<span id="cb10-22"><a href="#cb10-22" aria-hidden="true" tabindex="-1"></a>                alpha<span class="op">=</span><span class="fl">0.7</span>, lw<span class="op">=</span><span class="fl">1.5</span>)</span>
+<span id="cb10-23"><a href="#cb10-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-24"><a href="#cb10-24" aria-hidden="true" tabindex="-1"></a>    rtgs <span class="op">=</span> df[df[<span class="st">"systems"</span>] <span class="op">==</span> i<span class="op">+</span><span class="dv">1</span>]</span>
+<span id="cb10-25"><a href="#cb10-25" aria-hidden="true" tabindex="-1"></a>    xs <span class="op">=</span> rtgs[<span class="st">"ratings"</span>].values</span>
+<span id="cb10-26"><a href="#cb10-26" aria-hidden="true" tabindex="-1"></a>    axs[i].plot(xs, stats.uniform.rvs(<span class="op">-</span><span class="fl">0.2</span>, <span class="fl">0.2</span>, size<span class="op">=</span><span class="bu">len</span>(xs)), <span class="st">'o'</span>, </span>
+<span id="cb10-27"><a href="#cb10-27" aria-hidden="true" tabindex="-1"></a>                markersize<span class="op">=</span><span class="dv">3</span>, c<span class="op">=</span><span class="ss">f"C</span><span class="sc">{</span>i<span class="sc">}</span><span class="ss">"</span>, alpha<span class="op">=</span><span class="fl">0.8</span>, label<span class="op">=</span><span class="vs">r"</span><span class="dv">$</span><span class="vs">y_{kj}</span><span class="dv">$</span><span class="vs">"</span>, </span>
+<span id="cb10-28"><a href="#cb10-28" aria-hidden="true" tabindex="-1"></a>                mec<span class="op">=</span><span class="st">"0.3"</span>, mew<span class="op">=</span><span class="fl">1.0</span>)</span>
+<span id="cb10-29"><a href="#cb10-29" aria-hidden="true" tabindex="-1"></a>    axs[i].text(<span class="fl">0.1</span>, <span class="fl">0.8</span>, <span class="ss">f"System </span><span class="sc">{</span>i<span class="op">+</span><span class="dv">1</span><span class="sc">}</span><span class="ss">"</span>, transform<span class="op">=</span>axs[i].transAxes, </span>
+<span id="cb10-30"><a href="#cb10-30" aria-hidden="true" tabindex="-1"></a>                verticalalignment<span class="op">=</span><span class="st">"top"</span>, horizontalalignment<span class="op">=</span><span class="st">"left"</span>)</span>
+<span id="cb10-31"><a href="#cb10-31" aria-hidden="true" tabindex="-1"></a>    axs[i].vlines([<span class="dv">0</span>, <span class="dv">20</span>, <span class="dv">40</span>, <span class="dv">60</span>, <span class="dv">80</span>, <span class="dv">100</span>], <span class="dv">0</span>, <span class="dv">1</span>, </span>
+<span id="cb10-32"><a href="#cb10-32" aria-hidden="true" tabindex="-1"></a>                  transform<span class="op">=</span>axs[i].get_xaxis_transform(), lw<span class="op">=</span><span class="dv">1</span>, </span>
+<span id="cb10-33"><a href="#cb10-33" aria-hidden="true" tabindex="-1"></a>                  colors<span class="op">=</span><span class="st">"0.85"</span>, zorder<span class="op">=</span><span class="dv">0</span>)</span>
+<span id="cb10-34"><a href="#cb10-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-35"><a href="#cb10-35" aria-hidden="true" tabindex="-1"></a>    axs[i].set_ylim((<span class="op">-</span><span class="fl">0.3</span>, <span class="fl">1.3</span>))</span>
+<span id="cb10-36"><a href="#cb10-36" aria-hidden="true" tabindex="-1"></a>    axs[i].set_xlim((<span class="op">-</span><span class="dv">5</span>, <span class="dv">105</span>))</span>
+<span id="cb10-37"><a href="#cb10-37" aria-hidden="true" tabindex="-1"></a>    axs[i].set_yticks([])</span>
+<span id="cb10-38"><a href="#cb10-38" aria-hidden="true" tabindex="-1"></a>    axs[i].spines[<span class="st">"top"</span>].set_visible(<span class="va">False</span>)</span>
+<span id="cb10-39"><a href="#cb10-39" aria-hidden="true" tabindex="-1"></a>    axs[i].spines[<span class="st">"left"</span>].set_visible(<span class="va">False</span>)</span>
+<span id="cb10-40"><a href="#cb10-40" aria-hidden="true" tabindex="-1"></a>    axs[i].spines[<span class="st">"right"</span>].set_visible(<span class="va">False</span>)</span>
+<span id="cb10-41"><a href="#cb10-41" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> i <span class="op">&lt;</span> <span class="dv">5</span>:</span>
+<span id="cb10-42"><a href="#cb10-42" aria-hidden="true" tabindex="-1"></a>        axs[i].tick_params(length<span class="op">=</span><span class="dv">0</span>)</span>
+<span id="cb10-43"><a href="#cb10-43" aria-hidden="true" tabindex="-1"></a>        axs[i].spines[<span class="st">"bottom"</span>].set_visible(<span class="va">False</span>)</span>
+<span id="cb10-44"><a href="#cb10-44" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span>:</span>
+<span id="cb10-45"><a href="#cb10-45" aria-hidden="true" tabindex="-1"></a>        axs[i].spines[<span class="st">"bottom"</span>].set_visible(<span class="va">True</span>)</span>
+<span id="cb10-46"><a href="#cb10-46" aria-hidden="true" tabindex="-1"></a>        axs[i].spines[<span class="st">"bottom"</span>].set_color(<span class="st">"0.7"</span>)</span>
+<span id="cb10-47"><a href="#cb10-47" aria-hidden="true" tabindex="-1"></a>        axs[i].set_xlabel(<span class="st">"Rating"</span>)</span>
+<span id="cb10-48"><a href="#cb10-48" aria-hidden="true" tabindex="-1"></a>        _ <span class="op">=</span> axs[i].set_xticks([<span class="dv">0</span>, <span class="dv">20</span>, <span class="dv">40</span>, <span class="dv">60</span>, <span class="dv">80</span>, <span class="dv">100</span>])</span>
+<span id="cb10-49"><a href="#cb10-49" aria-hidden="true" tabindex="-1"></a>        axs[i].legend()</span>
+<span id="cb10-50"><a href="#cb10-50" aria-hidden="true" tabindex="-1"></a>fig.suptitle(<span class="vs">r"Posterior predictive distributions </span><span class="dv">$</span><span class="vs">p</span><span class="kw">(</span><span class="ch">\t</span><span class="vs">ilde{y}</span><span class="cf">|</span><span class="dv">\b</span><span class="vs">oldsymbol{y}</span><span class="kw">)</span><span class="dv">$</span><span class="vs">"</span>, </span>
+<span id="cb10-51"><a href="#cb10-51" aria-hidden="true" tabindex="-1"></a>                 fontsize<span class="op">=</span><span class="dv">10</span>)<span class="op">;</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output cell-output-display">
+<div id="fig-posteriorpredictive" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-posteriorpredictive-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="mushra_bayesian_files/figure-html/fig-posteriorpredictive-output-1.png" class="img-fluid figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-posteriorpredictive-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;6: Posterior predictive distributions for each system. Here, the values of <span class="math inline">\(y\)</span> are scaled to [0, 100] for comparison with original listening test ratings <span class="math inline">\(r_{kj}\)</span>.
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>The distributions plotted as shaded areas seem to fit nicely with the observations, spanning the range of given ratings. The scale end effects are shown very nicely; where there are multiple ratings at either extreme, the distribution is “pulled” towards the edge.</p>
+</section>
+<section id="rs-with-posteriors" class="level2">
+<h2 class="anchored" data-anchor-id="rs-with-posteriors">R&amp;S with posteriors</h2>
+<p>Now that we have the bayesian model for our listening test data and the posterior distributions for the model parameters, actually the R&amp;S part is very very simple. Thinking back on the Gibbons <em>et al.</em> quote earlier: <em>“… ranking and selection procedures are statistical techniques for comparing the parameters of some <span class="math inline">\(k\)</span> populations …”</em>, we now have in fact a full statistical model describing those parameters, and can calculate the R&amp;S statistics from the posterior draws.</p>
+<p>As an example, if we look at the posterior distributions of <span class="math inline">\(\mu_j\)</span> (<a href="#fig-muposterior" class="quarto-xref">Figure&nbsp;7</a>), we see that the distribution of <span class="math inline">\(\mu_2\)</span> seems to have most mass above the others (apart from the reference system <span class="math inline">\(\mu_1\)</span>). But how confident can we be in stating that system 2 is on average the second best? We calculate from the posterior draws <span class="math inline">\(\mathrm{Pr}(\mu_2 &gt; \mathrm{max}_{j \neq 3} \mu_j)\)</span>, or in practice count the number of posterior draws where the value of <span class="math inline">\(\mu_2\)</span> ranks second and normalise with the total number of draws. Basically it’s a competition between <span class="math inline">\(\mu_3\)</span> and <span class="math inline">\(\mu_2\)</span>, and on each posterior draw, we get a single value from each distribution; as the distributions overla, sometimes the value for <span class="math inline">\(\mu_3\)</span> is higher than the one for <span class="math inline">\(\mu_2\)</span>, but more often <span class="math inline">\(\mu_2\)</span> is higher than <span class="math inline">\(\mu_3\)</span>. The result is that system 2 ranks second best in 81.5% of the posterior draws (and system 3 18.5% of the time).</p>
+<div id="cell-fig-muposterior" class="cell" data-execution_count="74">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>best_system <span class="op">=</span> np.argmax(mu_draws[:, <span class="dv">1</span>:<span class="dv">5</span>], axis<span class="op">=</span><span class="dv">1</span>) <span class="op">+</span> <span class="dv">2</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>vals, counts <span class="op">=</span> np.unique(best_system, return_counts<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> v, c <span class="kw">in</span> <span class="bu">zip</span>(vals, counts):</span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"System </span><span class="sc">{</span>v<span class="sc">}</span><span class="ss"> is 2nd best with probability </span><span class="sc">{</span><span class="dv">100</span><span class="op">*</span>c<span class="op">/</span>mu_draws<span class="sc">.</span>shape[<span class="dv">0</span>]<span class="sc">:.1f}</span><span class="ss">%"</span>)</span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>sns.set_theme(context<span class="op">=</span><span class="st">"notebook"</span>, style<span class="op">=</span><span class="st">"darkgrid"</span>, palette<span class="op">=</span><span class="st">"Dark2"</span>)</span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>_, ax <span class="op">=</span> plt.subplots(<span class="dv">1</span>,<span class="dv">1</span>,figsize<span class="op">=</span>(<span class="dv">4</span>,<span class="dv">3</span>))</span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">6</span>):</span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>    h, bins <span class="op">=</span> np.histogram(<span class="dv">100</span><span class="op">*</span>mu_draws[:, i], bins<span class="op">=</span><span class="dv">50</span>)</span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>    ax.stairs(h, bins, fill<span class="op">=</span><span class="va">True</span>, ls<span class="op">=</span><span class="st">"-"</span>, ec<span class="op">=</span><span class="st">"0.1"</span>, alpha<span class="op">=</span><span class="fl">0.5</span>, lw<span class="op">=</span><span class="fl">1.0</span>)</span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a>    system_mean <span class="op">=</span> <span class="dv">100</span><span class="op">*</span>mu_draws[:,i].mean()</span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> i <span class="op">==</span> <span class="dv">0</span>:</span>
+<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a>        system_mean <span class="op">=</span> <span class="dv">90</span></span>
+<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a>    ax.text(system_mean, <span class="dv">2300</span>, <span class="ss">f"</span><span class="sc">{</span>i<span class="op">+</span><span class="dv">1</span><span class="sc">}</span><span class="ss">"</span>, horizontalalignment<span class="op">=</span><span class="st">"center"</span>, c<span class="op">=</span><span class="ss">f"C</span><span class="sc">{</span>i<span class="sc">}</span><span class="ss">"</span>, </span>
+<span id="cb11-16"><a href="#cb11-16" aria-hidden="true" tabindex="-1"></a>            fontweight<span class="op">=</span><span class="st">"extra bold"</span>)</span>
+<span id="cb11-17"><a href="#cb11-17" aria-hidden="true" tabindex="-1"></a>ax.text(<span class="dv">0</span>, <span class="dv">2300</span>, <span class="st">"$j$:"</span>, horizontalalignment<span class="op">=</span><span class="st">"left"</span>)</span>
+<span id="cb11-18"><a href="#cb11-18" aria-hidden="true" tabindex="-1"></a><span class="co">#sns.despine(ax=ax, left=True, trim=True)</span></span>
+<span id="cb11-19"><a href="#cb11-19" aria-hidden="true" tabindex="-1"></a>ax.set_yticks([])</span>
+<span id="cb11-20"><a href="#cb11-20" aria-hidden="true" tabindex="-1"></a>ax.set_xlim((<span class="dv">0</span>,<span class="dv">100</span>))</span>
+<span id="cb11-21"><a href="#cb11-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-22"><a href="#cb11-22" aria-hidden="true" tabindex="-1"></a>ax.set_xlabel(<span class="st">"Rating"</span>)</span>
+<span id="cb11-23"><a href="#cb11-23" aria-hidden="true" tabindex="-1"></a>ax.set_title(<span class="vs">r"Posterior distributions for </span><span class="dv">$\m</span><span class="vs">u_j</span><span class="dv">$</span><span class="vs">"</span>)</span>
+<span id="cb11-24"><a href="#cb11-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-25"><a href="#cb11-25" aria-hidden="true" tabindex="-1"></a>plt.savefig(<span class="st">"preview.png"</span>)<span class="op">;</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>System 2 is 2nd best with probability 81.5%
+System 3 is 2nd best with probability 18.5%</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<div id="fig-muposterior" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-muposterior-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="mushra_bayesian_files/figure-html/fig-muposterior-output-2.png" class="img-fluid figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-muposterior-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;7: Posterior distributions for system-specific mean ratings <span class="math inline">\(\mu_j\)</span>, scaled from [0, 1] to the original [0, 100] range.
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>It is now up to the experimenter to decide whether the 81.5% probability is enough for stating that system 2 is the best among the systems under test. There is no statistical test for rejection or acceptance of a hypothesis. One can decide in advance what level of evidence will be considered credible enough.</p>
+<p>We could also calculate different R&amp;S statistics from the posteriors. For example, we could now say with very high confidence (in 100% of posterior draws) <em>either</em> system 2 or system 3 is the second-best.</p>
+</section>
+<section id="indifference-zone-rs" class="level2">
+<h2 class="anchored" data-anchor-id="indifference-zone-rs">Indifference-zone R&amp;S</h2>
+<p>An interesting R&amp;S formulation is the so-called <em>indifference-zone</em> (IZ) -approach, where make a decision that when the difference between mean ratings of two systems is less than some pre-defined value—let’s say 5 points on the 0–100 scale—then it means that there is in practice no real difference between the systems. So if we had a situation where our listening test top-two systems had mean ratings <span class="math inline">\(\mu_A\)</span> = 82 and <span class="math inline">\(\mu_B\)</span> = 85, and all other systems had ratings below 40, then we would not be making a huge mistake by stating that system A is the best; a difference of three points in a MUSHRA test is in practice degligible and you’d be just as correct in announcing either A or B as the best. So we could say that in a MUSHRA test we would be <em>indifferent</em> to differences less than 5 points and do our R&amp;S analysis accordingly.</p>
+<p>For our data, we would only need to consider systems 2 and 3. For the IZ analysis we would first set <span class="math inline">\(\delta_{IZ} = 5\)</span>, and then calculate for system 2: <span class="math display">\[p_{IZ,2} = \mathrm{Pr}(\mu_2 &gt; \mu_3), \quad \mathrm{if} \, |\mu_2 - \mu_3| &gt; \delta_{IZ}\]</span></p>
+<div id="a322f096" class="cell" data-execution_count="66">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="co"># scale delta_IZ to [0, 1]</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>delta_IZ <span class="op">=</span> <span class="dv">5</span><span class="op">/</span><span class="dv">100</span></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>idxs <span class="op">=</span> np.where(np.<span class="bu">abs</span>(mu_draws[:,<span class="dv">1</span>] <span class="op">-</span> mu_draws[:,<span class="dv">2</span>]) <span class="op">&gt;</span> delta_IZ)[<span class="dv">0</span>]</span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"p_IZ,2 = </span><span class="sc">{</span><span class="dv">100</span><span class="op">*</span>np<span class="sc">.</span><span class="bu">sum</span>(mu_draws[idxs,<span class="dv">1</span>] <span class="op">&gt;</span> mu_draws[idxs,<span class="dv">2</span>])<span class="op">/</span>idxs<span class="sc">.</span>shape[<span class="dv">0</span>]<span class="sc">:.1f}</span><span class="ss">%"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>p_IZ,2 = 90.6%</code></pre>
+</div>
+</div>
+<p>Here we see that the probability of system 2 being ranked above system 3 increased from the 81.5% earlier to 90.6% with the IZ formulation. Here we are only interested in being correct, <em>if</em> the real mean difference between systems is at least 5 points. If it would turn out to be less than 5 points, then we don’t really care which system is labeled as best.</p>
+<p>Depending on the precise experimental setup and research questions, the IZ formulation can seem either a bit weird or very useful. In the MUSHRA context, it’s not immediately obvious where we might use it, although the formulation itself feels intuitive—small differences are not very important. But if instead of MUSHRA scores we would be modeling for example a financial utility function, and we would have to pick one system that would maximise our utility (e.g., best arm identification), then the IZ formulation seems quite smart. For two systems that are very close to each other, it doesn’t matter that much which one we pick—the utility will be about the same for both—but if there is a large difference between the utilities, then in those cases it really is important to pick the one that results in a higher utility rather than a lower utility, and so it makes sense to focus mostly on begin correct in those cases where the selection makes a bigger difference.</p>
+</section>
+</section>
+<section id="wrapping-up" class="level1">
+<h1>Wrapping up</h1>
+<p>Modeling the listening test results as a hierarchical bayesian model and extracting R&amp;S statistics from the posteriors aligns very well with the basic intuition and prior knowledge we have about sensory evaluation in general. Instead of imagining unintuitive null hypotheses and finding out whether or not they are believable given our data, we can directly seek answers to those questions that are relevant in the context of audio evaluation.</p>
+<p>The utility of the bayesian model is not restricted to analysis of already-conducted experiments, but as mentioned earlier, can be used in optimising ongoing experiments with bayesian experimental design. From the R&amp;S point-of-view, if we are interested in identifying only a few best systems, it follows that we don’t need to spend so much time and effort on those systems which we can quite early on rule out from the top ranking positions. If we want to know which system is the best out of ten systems, then we don’t really care which systems are placed exactly at positions 5–10, but we do care which one is at position 1.</p>
+<p>The flexibility of the bayesian framework is a big advantage, as we don’t have to pick and choose separate statistical tests for each particular step in our statistical modeling, but can simply work with the same model all throughout the analysis.</p>
+
+
+
+</section>
+
+<div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body" data-entry-spacing="0" data-line-spacing="2" role="list">
+<div id="ref-dudewicz1980" class="csl-entry" role="listitem">
+<div class="csl-left-margin">1. </div><div class="csl-right-inline">Dudewicz, E. J. <a href="https://doi.org/10.2307/1268390">Ranking (<span>Ordering</span>) and <span>Selection</span>: <span>An</span> <span>Overview</span> of <span>How</span> to <span>Select</span> the <span>Best</span></a>. <em>Technometrics</em> <strong>22</strong>, 113 (1980).</div>
+</div>
+<div id="ref-hong2021" class="csl-entry" role="listitem">
+<div class="csl-left-margin">2. </div><div class="csl-right-inline">Hong, L. J., Fan, W. &amp; Luo, J. <a href="https://doi.org/10.1007/s42524-021-0152-6">Review on ranking and selection: <span>A</span> new perspective</a>. <em>Frontiers of Engineering Management</em> <strong>8</strong>, 321–343 (2021).</div>
+</div>
+<div id="ref-gibbons1979" class="csl-entry" role="listitem">
+<div class="csl-left-margin">3. </div><div class="csl-right-inline">Gibbons, J. D., Olkin, I. &amp; Sobel, M. <a href="https://www.jstor.org/stable/2683731">An <span>Introduction</span> to <span>Ranking</span> and <span>Selection</span></a>. <em>The American Statistician</em> <strong>33</strong>, 185–195 (1979).</div>
+</div>
+<div id="ref-chick2010" class="csl-entry" role="listitem">
+<div class="csl-left-margin">4. </div><div class="csl-right-inline">Chick, S. E., Branke, J. &amp; Schmidt, C. <a href="https://doi.org/10.1287/ijoc.1090.0327">Sequential <span>Sampling</span> to <span>Myopically</span> <span>Maximize</span> the <span>Expected</span> <span>Value</span> of <span>Information</span></a>. <em>INFORMS Journal on Computing</em> <strong>22</strong>, 71–80 (2010).</div>
+</div>
+<div id="ref-frazier2008" class="csl-entry" role="listitem">
+<div class="csl-left-margin">5. </div><div class="csl-right-inline">Frazier, P. I., Powell, W. B. &amp; Dayanik, S. <a href="https://doi.org/10.1137/070693424">A <span>Knowledge</span>-<span>Gradient</span> <span>Policy</span> for <span>Sequential</span> <span>Information</span> <span>Collection</span></a>. <em>SIAM Journal on Control and Optimization</em> <strong>47</strong>, 2410–2439 (2008).</div>
+</div>
+<div id="ref-itur-bs1534" class="csl-entry" role="listitem">
+<div class="csl-left-margin">6. </div><div class="csl-right-inline"><span class="nocase">Rec. ITU-R BS.1534-3: Method for the subjective assessment of intermediate quality level of audio systems</span>. <a href="https://www.itu.int/rec/R-REC-BS.1534">https://www.itu.int/rec/R-REC-BS.1534</a> (2015).</div>
+</div>
+<div id="ref-Schoeffler2018" class="csl-entry" role="listitem">
+<div class="csl-left-margin">7. </div><div class="csl-right-inline">Schoeffler, M. <em>et al.</em> <span class="nocase">webMUSHRA</span> — a comprehensive framework for web-based listening tests. <em>Journal of Open Research Software</em> <a href="https://doi.org/10.5334/jors.187">https://doi.org/10.5334/jors.187</a> (2018) doi:<a href="https://doi.org/10.5334/jors.187">10.5334/jors.187</a>.</div>
+</div>
+</div></section></div></main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/petterihyvarinen\.fi\/blog");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+            // target, if specified
+            link.setAttribute("target", "_blank");
+            if (link.getAttribute("rel") === null) {
+              link.setAttribute("rel", "noopener");
+            }
+            // default icon
+            link.classList.add("external");
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>
