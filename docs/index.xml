@@ -25,7 +25,7 @@
 <p>Results from such tests always involve uncertainty; different listeners may give slightly different ratings to the same system, or even the same listener may give different responses in repeated trials of identical conditions. When interpreting the results and drawing conclusions from the data, this uncertainty is taken into account by statistical analysis. If you’ve ever done statistics on listening test data (or possibly other kinds of sensory evaluation data), you may be familiar with the feeling that the statistical models and methods are not working for you but you are instead working for them—and not getting much in return.</p>
 <p>I suggest that this difficulty with sensory evaluation data and statistics is because the classical statistical testing is geared towards answering different kinds of questions than the ones we’d like to ask about our listening experiment results. But luckily, things can be made easier by using a different statistical framework—ranking &amp; selection (R&amp;S)—where the questions are formulated in ways that fit sensory evaluation tasks perfectly.</p>
 <p>This article is a Jupyter notebook, rendered to HTML with Quarto. It contains the Python code for running the analysis and creating the figures and tables. The code cells are hidden by default, to keep the text readable—the code cells can be expanded by clicking on them. In addition to standard scientific Python packages, I’ll use <a href="https://mc-stan.org/">STAN</a> for the bayesian inference via its CmdStanPy python interface.</p>
-<div id="97f3ded4" class="cell" data-execution_count="56">
+<div id="97f3ded4" class="cell" data-execution_count="12">
 <details class="code-fold">
 <summary>Code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><span class="im" style="color: #00769E;
@@ -130,7 +130,7 @@ Figure&nbsp;1: webMUSHRA user interface
 <h2 class="anchored" data-anchor-id="example-data">Example data</h2>
 <p>We have the results of a MUSHRA listening test that investigated spatial audio quality, in which <img src="https://latex.codecogs.com/png.latex?N%20=%2015"> listeners <img src="https://latex.codecogs.com/png.latex?k%20=%201%20%5Cldots%20N"> evaluated <img src="https://latex.codecogs.com/png.latex?M%20=%206"> systems <img src="https://latex.codecogs.com/png.latex?j%20=%201%20%5Cldots%206"> (of which system 1 is the reference and system 6 the anchor) and gave them ratings <img src="https://latex.codecogs.com/png.latex?r_%7Bkj%7D%20%5Cin%20%5B0,%20%20100%5D">. The responses are shown in Figure&nbsp;2.</p>
 <p>Here we will only consider ratings for a single sound clip, to keep the statistical model simple enough. For actual listening experiment data, where we have multiple conditions and possibly repetitions of items, we would add more parameters to the model, accounting for different experimental conditions and also listener-specific effects.</p>
-<div id="cell-fig-rawdata" class="cell" data-execution_count="57">
+<div id="cell-fig-rawdata" class="cell" data-execution_count="2">
 <details class="code-fold">
 <summary>Code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1">ratings <span class="op" style="color: #5E5E5E;
@@ -304,7 +304,7 @@ Figure&nbsp;2: Responses from 15 participants in a MUSHRA test with four systems
 <h2 class="anchored" data-anchor-id="prior-predictive-checks">Prior predictive checks</h2>
 <p>To have an idea of what the model (1) does, and whether the priors we have chosen make any sense, it is a good idea to take a look at the prior predictive distributions. Here, no data is yet analysed—we only want to take the prior distributions as they are and see how the parameters and predictive distributions for <img src="https://latex.codecogs.com/png.latex?y_%7Bkj%7D"> look like with those values. We will now draw random samples from the prior and hyperprior distributions and use those random values as parameters for drawing samples from the beta distribution.</p>
 <p>The point is to see if the distributions of <img src="https://latex.codecogs.com/png.latex?%5Cmu_j"> and <img src="https://latex.codecogs.com/png.latex?y_%7Bkj%7D"> make sense given our experimental design. It could be for example that our model would <em>a priori</em> result in distributions that are focused on the extreme ends of the scale: to 0 and 1, without any probability mass in between. This would mean that before seeing any data, the model expects that all ratings would most likely be either of value 0 or 100 and that it would be extremely rare to see any ratings of intermediate values. Clearly, this is not what we expect, but rather we assume that ratings should be quite evenly distributed across the scale—and our prior predicitive distributions should then reflect this.</p>
-<div id="a6346e6f" class="cell" data-execution_count="58">
+<div id="a6346e6f" class="cell" data-execution_count="3">
 <details class="code-fold">
 <summary>Code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1">N <span class="op" style="color: #5E5E5E;
@@ -390,7 +390,7 @@ font-style: inherit;">=</span>N)</span></code></pre></div></div>
 </details>
 </div>
 <p>First, let’s look at how the beta distributions look like. Here we draw 15 random pairs of <img src="https://latex.codecogs.com/png.latex?%5Cmu_j"> and <img src="https://latex.codecogs.com/png.latex?%5Cphi_j"> parameters from the priors and generate 10000 samples from the beta distribution with those values for predictions of possible <img src="https://latex.codecogs.com/png.latex?y_%7Bkj%7D">.</p>
-<div id="cell-fig-betadist" class="cell" data-execution_count="59">
+<div id="cell-fig-betadist" class="cell" data-execution_count="4">
 <details class="code-fold">
 <summary>Code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1">sns.set_style(<span class="st" style="color: #20794D;
@@ -823,7 +823,7 @@ font-style: inherit;">1</span> - mu_j) * phi_j[system_id[n]]);</span>
 <section id="model-fitting" class="level2">
 <h2 class="anchored" data-anchor-id="model-fitting">Model fitting</h2>
 <p>We then take the STAN model above and fit the actual observations (see Figure&nbsp;2) to it. First the ratings <img src="https://latex.codecogs.com/png.latex?r_%7Bkj%7D"> are scaled to the interval [0, 1] and those values, along with the information about the system for which that rating was given, are passed to the STAN model. The MCMC runs four separate chains, which are first sampled for some time to warm up and stabilise the chains, and then 5000 draws are taken from each Markov chain for the actual posterior draws.</p>
-<div id="903de4ce" class="cell" data-execution_count="61">
+<div id="903de4ce" class="cell" data-execution_count="6">
 <details class="code-fold">
 <summary>Code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1">model <span class="op" style="color: #5E5E5E;
@@ -918,7 +918,7 @@ font-style: inherit;">False</span>)</span></code></pre></div></div>
 <p>[…] compares the between- and within-chain estimates for model parameters and other univariate quantities of interest. If chains have not mixed well (ie, the between- and within-chain estimates don’t agree), R-hat is larger than 1. We recommend running at least four chains by default and only using the sample if R-hat is less than 1.05.</p>
 </blockquote>
 <p>All parameters and hyperparameters have an <code>R_hat</code> of 1.0, so all good so far.</p>
-<div id="74fe783c" class="cell" data-execution_count="62">
+<div id="74fe783c" class="cell" data-execution_count="7">
 <details class="code-fold">
 <summary>Code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1">df_summary <span class="op" style="color: #5E5E5E;
@@ -932,7 +932,7 @@ font-style: inherit;">2</span>)</span>
 background-color: null;
 font-style: inherit;">15</span>,:]</span></code></pre></div></div>
 </details>
-<div class="cell-output cell-output-display" data-execution_count="62">
+<div class="cell-output cell-output-display" data-execution_count="7">
 <div>
 
 
@@ -965,7 +965,7 @@ font-style: inherit;">15</span>,:]</span></code></pre></div></div>
 <td>140.000</td>
 <td>7200.0</td>
 <td>12000.0</td>
-<td>150.0</td>
+<td>89.0</td>
 <td>1.0</td>
 </tr>
 <tr class="even">
@@ -979,7 +979,7 @@ font-style: inherit;">15</span>,:]</span></code></pre></div></div>
 <td>1.100</td>
 <td>3800.0</td>
 <td>6100.0</td>
-<td>78.0</td>
+<td>47.0</td>
 <td>1.0</td>
 </tr>
 <tr class="odd">
@@ -993,7 +993,7 @@ font-style: inherit;">15</span>,:]</span></code></pre></div></div>
 <td>5.800</td>
 <td>4300.0</td>
 <td>6800.0</td>
-<td>88.0</td>
+<td>53.0</td>
 <td>1.0</td>
 </tr>
 <tr class="even">
@@ -1007,7 +1007,7 @@ font-style: inherit;">15</span>,:]</span></code></pre></div></div>
 <td>2.100</td>
 <td>4100.0</td>
 <td>6900.0</td>
-<td>84.0</td>
+<td>51.0</td>
 <td>1.0</td>
 </tr>
 <tr class="odd">
@@ -1021,7 +1021,7 @@ font-style: inherit;">15</span>,:]</span></code></pre></div></div>
 <td>1.800</td>
 <td>4000.0</td>
 <td>6300.0</td>
-<td>82.0</td>
+<td>50.0</td>
 <td>1.0</td>
 </tr>
 <tr class="even">
@@ -1035,7 +1035,7 @@ font-style: inherit;">15</span>,:]</span></code></pre></div></div>
 <td>-0.028</td>
 <td>4200.0</td>
 <td>6500.0</td>
-<td>86.0</td>
+<td>52.0</td>
 <td>1.0</td>
 </tr>
 <tr class="odd">
@@ -1049,7 +1049,7 @@ font-style: inherit;">15</span>,:]</span></code></pre></div></div>
 <td>-0.820</td>
 <td>4100.0</td>
 <td>6900.0</td>
-<td>85.0</td>
+<td>51.0</td>
 <td>1.0</td>
 </tr>
 <tr class="even">
@@ -1063,7 +1063,7 @@ font-style: inherit;">15</span>,:]</span></code></pre></div></div>
 <td>-1.800</td>
 <td>4400.0</td>
 <td>7400.0</td>
-<td>90.0</td>
+<td>55.0</td>
 <td>1.0</td>
 </tr>
 <tr class="odd">
@@ -1077,7 +1077,7 @@ font-style: inherit;">15</span>,:]</span></code></pre></div></div>
 <td>3.600</td>
 <td>19000.0</td>
 <td>13000.0</td>
-<td>400.0</td>
+<td>240.0</td>
 <td>1.0</td>
 </tr>
 <tr class="even">
@@ -1091,7 +1091,7 @@ font-style: inherit;">15</span>,:]</span></code></pre></div></div>
 <td>130.000</td>
 <td>19000.0</td>
 <td>12000.0</td>
-<td>390.0</td>
+<td>240.0</td>
 <td>1.0</td>
 </tr>
 <tr class="odd">
@@ -1105,7 +1105,7 @@ font-style: inherit;">15</span>,:]</span></code></pre></div></div>
 <td>6.800</td>
 <td>23000.0</td>
 <td>14000.0</td>
-<td>470.0</td>
+<td>280.0</td>
 <td>1.0</td>
 </tr>
 <tr class="even">
@@ -1119,7 +1119,7 @@ font-style: inherit;">15</span>,:]</span></code></pre></div></div>
 <td>10.000</td>
 <td>23000.0</td>
 <td>14000.0</td>
-<td>480.0</td>
+<td>290.0</td>
 <td>1.0</td>
 </tr>
 <tr class="odd">
@@ -1133,7 +1133,7 @@ font-style: inherit;">15</span>,:]</span></code></pre></div></div>
 <td>5.800</td>
 <td>21000.0</td>
 <td>13000.0</td>
-<td>430.0</td>
+<td>260.0</td>
 <td>1.0</td>
 </tr>
 <tr class="even">
@@ -1147,7 +1147,7 @@ font-style: inherit;">15</span>,:]</span></code></pre></div></div>
 <td>11.000</td>
 <td>22000.0</td>
 <td>12000.0</td>
-<td>440.0</td>
+<td>270.0</td>
 <td>1.0</td>
 </tr>
 <tr class="odd">
@@ -1161,7 +1161,7 @@ font-style: inherit;">15</span>,:]</span></code></pre></div></div>
 <td>18.000</td>
 <td>18000.0</td>
 <td>12000.0</td>
-<td>360.0</td>
+<td>220.0</td>
 <td>1.0</td>
 </tr>
 </tbody>
@@ -1171,7 +1171,7 @@ font-style: inherit;">15</span>,:]</span></code></pre></div></div>
 </div>
 </div>
 <p>We can also look at the MCMC samples with <a href="https://python.arviz.org/en/stable/index.html">ArviZ</a> (Figure&nbsp;5), which is a visual tool for working with bayesian models in Python. On the right panel, there are the 5000 individual draws for each chain and on the left panel, the distribution of those drawn values.</p>
-<div id="cell-fig-arviz" class="cell" data-execution_count="63">
+<div id="cell-fig-arviz" class="cell" data-execution_count="8">
 <details class="code-fold">
 <summary>Code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1">az.style.use(<span class="st" style="color: #20794D;
@@ -1237,7 +1237,7 @@ Figure&nbsp;5: MCMC traces for model parameters
 <h2 class="anchored" data-anchor-id="posterior-predictive-checks">Posterior predictive checks</h2>
 <p>When we have the full model fitted with data, we’d first like to check that the model makes sense. As we did with the priors, we will now first look at what the full model actually does with the parameter distributions that we’ve obtained. In particular, we want to be sure that the model fits with our observations and has not converged to some strange combination of parameter values.</p>
 <p>Since the parameter values are drawn from a distribution, we can take each draw of parameters and simulate predictions <img src="https://latex.codecogs.com/png.latex?%5Ctilde%7By%7D"> for each combination. But it’s also possible to take point estimates of the parameter distributions and use those fixed values. Here I’ll use the posterior means for each parameter.</p>
-<div id="cell-fig-posteriorpredictive" class="cell" data-execution_count="72">
+<div id="cell-fig-posteriorpredictive" class="cell" data-execution_count="9">
 <details class="code-fold">
 <summary>Code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1">plt.rcParams[<span class="st" style="color: #20794D;
@@ -1683,7 +1683,7 @@ Figure&nbsp;6: Posterior predictive distributions for each system. Here, the val
 <h2 class="anchored" data-anchor-id="rs-with-posteriors">R&amp;S with posteriors</h2>
 <p>Now that we have the bayesian model for our listening test data and the posterior distributions for the model parameters, actually the R&amp;S part is very very simple. Thinking back on the Gibbons <em>et al.</em> quote earlier: <em>“… ranking and selection procedures are statistical techniques for comparing the parameters of some <img src="https://latex.codecogs.com/png.latex?k"> populations …”</em>, we now have in fact a full statistical model describing those parameters, and can calculate the R&amp;S statistics from the posterior draws.</p>
 <p>As an example, if we look at the posterior distributions of <img src="https://latex.codecogs.com/png.latex?%5Cmu_j"> (Figure&nbsp;7), we see that the distribution of <img src="https://latex.codecogs.com/png.latex?%5Cmu_2"> seems to have most mass above the others (apart from the reference system <img src="https://latex.codecogs.com/png.latex?%5Cmu_1">). But how confident can we be in stating that system 2 is on average the second best? We calculate from the posterior draws <img src="https://latex.codecogs.com/png.latex?%5Cmathrm%7BPr%7D(%5Cmu_2%20%3E%20%5Cmathrm%7Bmax%7D_%7Bj%20%5Cneq%203%7D%20%5Cmu_j)">, or in practice count the number of posterior draws where the value of <img src="https://latex.codecogs.com/png.latex?%5Cmu_2"> ranks second and normalise with the total number of draws. Basically it’s a competition between <img src="https://latex.codecogs.com/png.latex?%5Cmu_3"> and <img src="https://latex.codecogs.com/png.latex?%5Cmu_2">, and on each posterior draw, we get a single value from each distribution; as the distributions overla, sometimes the value for <img src="https://latex.codecogs.com/png.latex?%5Cmu_3"> is higher than the one for <img src="https://latex.codecogs.com/png.latex?%5Cmu_2">, but more often <img src="https://latex.codecogs.com/png.latex?%5Cmu_2"> is higher than <img src="https://latex.codecogs.com/png.latex?%5Cmu_3">. The result is that system 2 ranks second best in 81.5% of the posterior draws (and system 3 18.5% of the time).</p>
-<div id="cell-fig-muposterior" class="cell" data-execution_count="74">
+<div id="cell-fig-muposterior" class="cell preview-image" data-execution_count="15">
 <details class="code-fold">
 <summary>Code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1">best_system <span class="op" style="color: #5E5E5E;
@@ -1935,7 +1935,7 @@ Figure&nbsp;7: Posterior distributions for system-specific mean ratings <img src
 <h2 class="anchored" data-anchor-id="indifference-zone-rs">Indifference-zone R&amp;S</h2>
 <p>An interesting R&amp;S formulation is the so-called <em>indifference-zone</em> (IZ) -approach, where make a decision that when the difference between mean ratings of two systems is less than some pre-defined value—let’s say 5 points on the 0–100 scale—then it means that there is in practice no real difference between the systems. So if we had a situation where our listening test top-two systems had mean ratings <img src="https://latex.codecogs.com/png.latex?%5Cmu_A"> = 82 and <img src="https://latex.codecogs.com/png.latex?%5Cmu_B"> = 85, and all other systems had ratings below 40, then we would not be making a huge mistake by stating that system A is the best; a difference of three points in a MUSHRA test is in practice degligible and you’d be just as correct in announcing either A or B as the best. So we could say that in a MUSHRA test we would be <em>indifferent</em> to differences less than 5 points and do our R&amp;S analysis accordingly.</p>
 <p>For our data, we would only need to consider systems 2 and 3. For the IZ analysis we would first set <img src="https://latex.codecogs.com/png.latex?%5Cdelta_%7BIZ%7D%20=%205">, and then calculate for system 2: <img src="https://latex.codecogs.com/png.latex?p_%7BIZ,2%7D%20=%20%5Cmathrm%7BPr%7D(%5Cmu_2%20%3E%20%5Cmu_3),%20%5Cquad%20%5Cmathrm%7Bif%7D%20%5C,%20%7C%5Cmu_2%20-%20%5Cmu_3%7C%20%3E%20%5Cdelta_%7BIZ%7D"></p>
-<div id="a322f096" class="cell" data-execution_count="66">
+<div id="a322f096" class="cell" data-execution_count="11">
 <details class="code-fold">
 <summary>Code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><span class="co" style="color: #5E5E5E;
@@ -2044,6 +2044,7 @@ font-style: inherit;">%"</span>)</span></code></pre></div></div>
   <category>statistics</category>
   <guid>https://petterihyvarinen.fi/blog/posts/bayesian-mushra/</guid>
   <pubDate>Mon, 03 Nov 2025 22:00:00 GMT</pubDate>
+  <media:content url="https://petterihyvarinen.fi/blog/posts/bayesian-mushra/preview.png" medium="image" type="image/png" height="108" width="144"/>
 </item>
 </channel>
 </rss>
