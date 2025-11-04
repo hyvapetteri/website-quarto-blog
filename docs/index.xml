@@ -1,0 +1,2049 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss  xmlns:atom="http://www.w3.org/2005/Atom" 
+      xmlns:media="http://search.yahoo.com/mrss/" 
+      xmlns:content="http://purl.org/rss/1.0/modules/content/" 
+      xmlns:dc="http://purl.org/dc/elements/1.1/" 
+      version="2.0">
+<channel>
+<title>posts by Petteri Hyvärinen</title>
+<link>https://petterihyvarinen.fi/blog/</link>
+<atom:link href="https://petterihyvarinen.fi/blog/index.xml" rel="self" type="application/rss+xml"/>
+<description>Blog posts by Petteri Hyvärinen</description>
+<generator>quarto-1.8.25</generator>
+<lastBuildDate>Mon, 03 Nov 2025 22:00:00 GMT</lastBuildDate>
+<item>
+  <title>Bayesian Ranking &amp; Selection for listening tests</title>
+  <dc:creator>Petteri Hyvärinen</dc:creator>
+  <link>https://petterihyvarinen.fi/blog/posts/bayesian-mushra/</link>
+  <description><![CDATA[ 
+
+
+
+
+
+<p>Sensory evaluation of sound is an essential step in the development of audio and acoustic systems. In sensory evaluation listening tests, assessors listen to different audio <em>systems</em>, such as alternative audio codecs, hardware configurations, loudspeaker layouts, or signal processing methods, and give responses according to the specific listening test task; for example: select the system that appears to have more bass or clarity, or give each system a rating between 0 and 100 for stereo image quality or basic audio quality.</p>
+<p>Results from such tests always involve uncertainty; different listeners may give slightly different ratings to the same system, or even the same listener may give different responses in repeated trials of identical conditions. When interpreting the results and drawing conclusions from the data, this uncertainty is taken into account by statistical analysis. If you’ve ever done statistics on listening test data (or possibly other kinds of sensory evaluation data), you may be familiar with the feeling that the statistical models and methods are not working for you but you are instead working for them—and not getting much in return.</p>
+<p>I suggest that this difficulty with sensory evaluation data and statistics is because the classical statistical testing is geared towards answering different kinds of questions than the ones we’d like to ask about our listening experiment results. But luckily, things can be made easier by using a different statistical framework—ranking &amp; selection (R&amp;S)—where the questions are formulated in ways that fit sensory evaluation tasks perfectly.</p>
+<p>This article is a Jupyter notebook, rendered to HTML with Quarto. It contains the Python code for running the analysis and creating the figures and tables. The code cells are hidden by default, to keep the text readable—the code cells can be expanded by clicking on them. In addition to standard scientific Python packages, I’ll use <a href="https://mc-stan.org/">STAN</a> for the bayesian inference via its CmdStanPy python interface.</p>
+<div id="97f3ded4" class="cell" data-execution_count="56">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><span class="im" style="color: #00769E;
+background-color: null;
+font-style: inherit;">import</span> numpy <span class="im" style="color: #00769E;
+background-color: null;
+font-style: inherit;">as</span> np</span>
+<span id="cb1-2"><span class="im" style="color: #00769E;
+background-color: null;
+font-style: inherit;">from</span> scipy <span class="im" style="color: #00769E;
+background-color: null;
+font-style: inherit;">import</span> stats</span>
+<span id="cb1-3"><span class="im" style="color: #00769E;
+background-color: null;
+font-style: inherit;">from</span> scipy.special <span class="im" style="color: #00769E;
+background-color: null;
+font-style: inherit;">import</span> expit</span>
+<span id="cb1-4"><span class="im" style="color: #00769E;
+background-color: null;
+font-style: inherit;">import</span> matplotlib.pyplot <span class="im" style="color: #00769E;
+background-color: null;
+font-style: inherit;">as</span> plt</span>
+<span id="cb1-5"><span class="im" style="color: #00769E;
+background-color: null;
+font-style: inherit;">import</span> arviz <span class="im" style="color: #00769E;
+background-color: null;
+font-style: inherit;">as</span> az</span>
+<span id="cb1-6"><span class="im" style="color: #00769E;
+background-color: null;
+font-style: inherit;">import</span> pandas <span class="im" style="color: #00769E;
+background-color: null;
+font-style: inherit;">as</span> pd</span>
+<span id="cb1-7"><span class="im" style="color: #00769E;
+background-color: null;
+font-style: inherit;">import</span> cmdstanpy <span class="im" style="color: #00769E;
+background-color: null;
+font-style: inherit;">as</span> csp</span>
+<span id="cb1-8"><span class="im" style="color: #00769E;
+background-color: null;
+font-style: inherit;">import</span> seaborn <span class="im" style="color: #00769E;
+background-color: null;
+font-style: inherit;">as</span> sns</span>
+<span id="cb1-9"></span>
+<span id="cb1-10">plt.rcParams[<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"figure.dpi"</span>] <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">144</span></span>
+<span id="cb1-11">sns.set_theme(context<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"notebook"</span>, style<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"whitegrid"</span>, palette<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"Set2"</span>)</span>
+<span id="cb1-12"><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">%</span>matplotlib inline</span></code></pre></div></div>
+</details>
+</div>
+<section id="listening-test-statistics" class="level1">
+<h1>Listening test statistics</h1>
+<p>A very basic premise in sensory evaluation and related listening tests is that the systems under test are different from each other. If we run a listening test with a bunch of headphones of a certain price point from competing brands, then we <em>know</em> the headphones are physically different and they have been made with different design goals in mind that will undoubtedly affect the acoustics of the product. Or if we compare different lossy audio codecs with various bit rates, then we <em>know</em> that there is less information in the compressed streams than in the original sound, and that the different codecs implement the compression differently. With this premise in mind, the aim of a listening test is then to quantify the differences between systems. We already know the systems are different because we made them so; we want to know <em>how clear</em> are the differences between systems, and quite often, which are the best systems.</p>
+<p>But when it comes time for the statistical analysis of the listening test results, things sometimes get a bit tricky. Instead of getting direct answers to the questions that we are interested in, we instead have to ask, and provide answers to, some completely different questions that we’re not so interested in. In classical statistical testing, such as ANOVA, we would for example test a null hypothesis corresponding to the opposite of our basic premise above: what if, on average, there were no actual differences between the systems—how likely would it then be to see these results you have collected in your listening experiment? And after having conducted the statistical analysis, we could hopefully conclude that it would be very unlikely indeed.</p>
+<p>The statistical analysis would have now informed us that it’s more likely that at least <em>one</em> of the systems under test sounds on average different from the others—in a way that the assessors can reliably report. But we don’t know which system or systems exactly drive this main effect. To know that, we would have to conduct <em>post-hoc</em> tests, constructing new null hypotheses, alternative hypotheses, and statistical tests, at each step hoping to reject statistical formulations that make little sense considering the basic premise. Perhaps it is not that surprising then, that the statistical analysis sometimes feels a bit uncomfortable and unhelpful for our purposes.</p>
+<section id="ranking-selection" class="level2">
+<h2 class="anchored" data-anchor-id="ranking-selection">Ranking &amp; Selection</h2>
+<p>In the statistical framework called ranking and selection (R&amp;S)<span class="citation" data-cites="dudewicz1980 hong2021"><sup>1,2</sup></span>, we would instead directly ask questions like <em>“which system is on average the best?”</em> and based on the listening test responses arrive at both an answer as well as a measure of confidence for the answer, such as <em>“system 3 is rated best with probability 96.3%”</em>. Or we can rank the systems based on current assessor responses and ask <em>“starting from the top, how many systems <img src="https://latex.codecogs.com/png.latex?K"> out of total <img src="https://latex.codecogs.com/png.latex?N"> do I have to pick to be at least 99.9% certain that one of the systems is really the best?”</em>, with the answer being something between 1 (it is very clear which system is the best) and <img src="https://latex.codecogs.com/png.latex?N"> (we have no idea which is best, so if we include all systems, the best is one of them with 100% confidence).</p>
+<p>Or, as put by Gibbons <em>et al.</em> (1979)<span class="citation" data-cites="gibbons1979"><sup>3</sup></span>:</p>
+<blockquote class="blockquote">
+<p>More generally, ranking and selection procedures are statistical techniques for comparing the parameters of some <img src="https://latex.codecogs.com/png.latex?k"> populations under the assumption that these parameters are not all the same.</p>
+</blockquote>
+<p>In other words, R&amp;S seems like a perfect match for our sensory evaluation data. We get rid of the artificial null hypotheses and their testing and rejection, and instead go directly at the questions we actually want answered.</p>
+<p>Another good match for R&amp;S is Bayesian inference, where we would model “the parameters of some <img src="https://latex.codecogs.com/png.latex?k"> populations” as distributions of random variables, and conduct our statistical analysis using those distributions. This approach is called Bayesian R&amp;S and it is used already in fields like operations research and machine learning. Bringing in the bayesian framework gives us a lot more tools to work with. After formulating our listening test as a bayesian statistical model, we can do bayesian experimental design (BED) to optimise the listening test, for example by using a sequential design, where we pick the next test item based on the information value we would expect to gain by testing each particular item<span class="citation" data-cites="chick2010 frazier2008"><sup>4,5</sup></span>.</p>
+<p>Next, I’ll show how Bayesian R&amp;S could be employed in the statistical analysis of results of the widely-used MUSHRA listening test format.</p>
+</section>
+</section>
+<section id="the-mushra-test" class="level1">
+<h1>The MUSHRA test</h1>
+<p>The ITU-R BS.1534-3<span class="citation" data-cites="itur-bs1534"><sup>6</sup></span> recommendation defines the “<strong>Mu</strong>lti <strong>S</strong>timulus test with <strong>H</strong>idden <strong>R</strong>eference and <strong>A</strong>nchor (<strong>MUSHRA</strong>)” method, which is intended for listening tests of intermediate-quality systems. In the test, assessors listen to sound clips which are processed through each system, allowing direct comparison of the systems in terms of sound coloration, stereo image, or some other relevant attribute. For each sound clip, a high-quality reference (e.g., a lossless audio sample), a low-quality anchor (think: low-passed, “lo-fi” sound sample), and the actual audio systems under comparison are evaluated, and listeners rate them on a 0–100 scale, where 100 corresponds to the quality of the reference system and 0 corresponds to the quality of the low-quality anchor.</p>
+<p>Since MUSHRA is intended for <em>intermediate-quality</em> systems, it means that the differences between systems should be quite obvious. It is not a test design meant to tease out the smallest, almost imperceptible differences between reference-grade hifi systems. Instead, the point is to have a straight-forward and relatively fast way for rating multiple test items. For statistical demonstration purposes, this is great, since for a MUSHRA test it is really clear to both the experimenter and the assessor that there are differences between systems.</p>
+<p>A popular choice for running a MUSHRA test is by using the browser-based webMUSHRA framework<span class="citation" data-cites="Schoeffler2018"><sup>7</sup></span>. Figure&nbsp;1 shows the experiment user interface, where ratings for each test item are given with sliders. The assessor can switch immediately between different test items, and it’s possible to loop a specific section of the sound clip. The systems are blinded, meaning that it is not known which test item corresponds to which system, and their ordering in the user interface is random. There is a labeled reference system, which the other systems are compared to, but also one of the blinded test items is the hidden reference—and this test item should be rated at 100.</p>
+<div id="fig-mushra-ui" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-mushra-ui-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="https://petterihyvarinen.fi/blog/posts/bayesian-mushra/mushra-screenshot-article.png" class="img-fluid figure-img" style="width:100.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-mushra-ui-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;1: webMUSHRA user interface
+</figcaption>
+</figure>
+</div>
+<section id="example-data" class="level2">
+<h2 class="anchored" data-anchor-id="example-data">Example data</h2>
+<p>We have the results of a MUSHRA listening test that investigated spatial audio quality, in which <img src="https://latex.codecogs.com/png.latex?N%20=%2015"> listeners <img src="https://latex.codecogs.com/png.latex?k%20=%201%20%5Cldots%20N"> evaluated <img src="https://latex.codecogs.com/png.latex?M%20=%206"> systems <img src="https://latex.codecogs.com/png.latex?j%20=%201%20%5Cldots%206"> (of which system 1 is the reference and system 6 the anchor) and gave them ratings <img src="https://latex.codecogs.com/png.latex?r_%7Bkj%7D%20%5Cin%20%5B0,%20%20100%5D">. The responses are shown in Figure&nbsp;2.</p>
+<p>Here we will only consider ratings for a single sound clip, to keep the statistical model simple enough. For actual listening experiment data, where we have multiple conditions and possibly repetitions of items, we would add more parameters to the model, accounting for different experimental conditions and also listener-specific effects.</p>
+<div id="cell-fig-rawdata" class="cell" data-execution_count="57">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1">ratings <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> np.loadtxt(<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"01-listening_test_results.csv"</span>, delimiter<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">";"</span>)</span>
+<span id="cb2-2">participants <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> np.arange(ratings.shape[<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span>], dtype<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="bu" style="color: null;
+background-color: null;
+font-style: inherit;">int</span>) <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span></span>
+<span id="cb2-3">participants <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> np.repeat(participants, <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">6</span>).flatten()</span>
+<span id="cb2-4">system_ids <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> np.arange(ratings.shape[<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>], dtype<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="bu" style="color: null;
+background-color: null;
+font-style: inherit;">int</span>) <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span></span>
+<span id="cb2-5">systems <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> np.tile(system_ids, (<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">15</span>,<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>))</span>
+<span id="cb2-6">ratings <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> ratings.flatten()</span>
+<span id="cb2-7">systems <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> systems.flatten()</span>
+<span id="cb2-8">df <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> pd.DataFrame({<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"ratings"</span>: ratings, <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"systems"</span>: systems, <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"listeners"</span>: participants})</span>
+<span id="cb2-9"></span>
+<span id="cb2-10">fig, ax <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> plt.subplots(<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>,<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>,figsize<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span>(<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">4</span>,<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">3</span>))</span>
+<span id="cb2-11">fig.set_layout_engine(<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">'tight'</span>)</span>
+<span id="cb2-12">fig.subplots_adjust(left<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="fl" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1.5</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">/</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">7</span>, right<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="fl" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">5.5</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">/</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">7</span>)</span>
+<span id="cb2-13">sns.stripplot(df, x<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"systems"</span>, y<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"ratings"</span>, hue<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"systems"</span>, ax<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span>ax, </span>
+<span id="cb2-14">              palette<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"Set2"</span>, legend<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="va" style="color: #111111;
+background-color: null;
+font-style: inherit;">False</span>, linewidth<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="fl" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1.0</span>)</span>
+<span id="cb2-15">ax.set_xlabel(<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"System"</span>)</span>
+<span id="cb2-16">ax.set_ylabel(<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"Rating"</span>)</span>
+<span id="cb2-17">ax.set_title(<span class="vs" style="color: #20794D;
+background-color: null;
+font-style: inherit;">r"Ratings </span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">$</span><span class="vs" style="color: #20794D;
+background-color: null;
+font-style: inherit;">r_{kj}</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">$</span><span class="vs" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"</span>)<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span></code></pre></div></div>
+</details>
+<div class="cell-output cell-output-display">
+<div id="fig-rawdata" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-rawdata-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="https://petterihyvarinen.fi/blog/posts/bayesian-mushra/mushra_bayesian_files/figure-html/fig-rawdata-output-1.png" class="img-fluid figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-rawdata-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;2: Responses from 15 participants in a MUSHRA test with four systems under test (systems 2–5), as well as a hidden reference (system 1) and anchor (system 6).
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>We see that the reference system 1 has been correctly identified by the listeners every time, and apart from two answers also the anchor 6 has been consistently rated at 0. Systems 4 and 5 perform clearly worse than systems 2 and 3. This kind of data is a bit cumbersome if we would for example want to do ANOVA directly on the raw ratings; the responses are limited between 0 and 100, so the ratings tend to “pack” at the extremes, and the assumption of homogeneity of variances (of the residuals) is not fulfilled. As with the bayesian model in the next section, also ANOVA can be extended with GLMs and other approaches that mitigate these issues, but with ANOVA, in the end we would still be doing hypothesis testing and not R&amp;S.</p>
+</section>
+</section>
+<section id="hierarchical-bayesian-model" class="level1">
+<h1>Hierarchical Bayesian model</h1>
+<p>We model the ratings <img src="https://latex.codecogs.com/png.latex?r_%7Bkj%7D"> using a <a href="https://en.wikipedia.org/wiki/Beta_distribution">Beta distribution</a>. They are first scaled to the interval [0,1], and the resulting values <img src="https://latex.codecogs.com/png.latex?y_%7Bkj%7D"> are modeled as beta-distributed random variables. The main reason for using a beta distribution is that others use it for this kind of data as well. But it is a natural choice in that it is defined on an interval [0, 1] as opposed to the full real line (<img src="https://latex.codecogs.com/png.latex?-%5Cinfty">, <img src="https://latex.codecogs.com/png.latex?+%5Cinfty">) as in the case of e.g.&nbsp;the normal distribution or the positive real line (0, <img src="https://latex.codecogs.com/png.latex?+%5Cinfty">) as for gamma and <img src="https://latex.codecogs.com/png.latex?%5Cchi%5E2"> distributions, and so it is a good choice for bounded scale data. The beta distribution also appears in order statistics; if we draw a sample from a uniform distribution, then the order statistics of the sample follow a beta distribution. If in a listening test we have listeners using the full range of the scale, then the results might not be too far from a uniform distribution, and it sounds reasonable that a beta distribution could work here.</p>
+<p>As mentioned earlier, we run the listening test with the assumption that the sound samples do not sound the same and that the distribution of ratings for each system will differ from the others. In the model, we will account for this by allowing the responses for each system <img src="https://latex.codecogs.com/png.latex?j"> to have individual shape parameters <img src="https://latex.codecogs.com/png.latex?%5Calpha_j"> and <img src="https://latex.codecogs.com/png.latex?%5Cbeta_j"> for the beta distribution. Here we will reparametrize the beta distribution <img src="https://latex.codecogs.com/png.latex?%5Cmathrm%7BBeta%7D(%5Calpha_j,%20%5Cbeta_j)"> using <img src="https://latex.codecogs.com/png.latex?%5Calpha_j%20=%20%5Cmu_j%20%5Cphi_j"> and <img src="https://latex.codecogs.com/png.latex?%5Cbeta_j%20=%20(1%20-%20%5Cmu_j)%20%5Cphi_j">. In this format, the <img src="https://latex.codecogs.com/png.latex?%5Cmu_j"> corresponds to the system-specific mean of the beta distribution on [0, 1] and <img src="https://latex.codecogs.com/png.latex?%5Cphi_j"> determines the “precision” of the beta distribution, i.e., in practice how tightly the distribution is concentrated near the mean <img src="https://latex.codecogs.com/png.latex?%5Cmu_j">. A high value of <img src="https://latex.codecogs.com/png.latex?%5Cphi_j"> means that the ratings given by different listeners for system <img src="https://latex.codecogs.com/png.latex?j"> are very close to each other; a low value of <img src="https://latex.codecogs.com/png.latex?%5Cphi_j">, in turn, means that the ratings are spread more widely over [0, 1].</p>
+<p>Since we want to restrict the <img src="https://latex.codecogs.com/png.latex?%5Cmu_j"> also to the interval [0, 1], we will model it as a logit-normally distributed random variable, meaning that the logit of <img src="https://latex.codecogs.com/png.latex?%5Cmu_j"> has a normal distribution. In practice, we set <img src="https://latex.codecogs.com/png.latex?%5Cmathrm%7Blogit%7D(%5Cmu_j)%20=%20%5Cmu_0%20+%20%5Calpha_j">, where <img src="https://latex.codecogs.com/png.latex?%5Cmu_0"> is term corresponding to the overall mean rating of all systems, and <img src="https://latex.codecogs.com/png.latex?%5Calpha_j"> corresponds to the average system-specific deviation from the overall mean, and set normal priors for <img src="https://latex.codecogs.com/png.latex?%5Cmu_j"> and <img src="https://latex.codecogs.com/png.latex?%5Calpha_j">. The logit acts here as a link function, as with generalized linear models (GLMs).</p>
+<p>The hierarchical model in full is: <span id="eq-model"><img src="https://latex.codecogs.com/png.latex?%0A%5Cbegin%7Baligned%7D%0Ay_%7Bkj%7D%20&amp;%5Csim%20%5Cmathrm%7BBeta%7D(%5Cmu_j%20%5Cphi_j,%5C;%20(1%20-%20%5Cmu_j)%5Cphi_j),%20%5C%5C%0A%5Cmathrm%7Blogit%7D(%5Cmu_j)%20&amp;=%20%5Cmu_0%20+%20%5Calpha_j,%20%5C%5C%0A%5Cmu_0%20&amp;%5Csim%20%5Cmathcal%7BN%7D(0,%201),%20%5C%5C%0A%5Calpha_j%20&amp;%5Csim%20%5Cmathcal%7BN%7D(0,%20%5Csigma_%5Calpha%5E2),%20%5C%5C%0A%5Csigma_%5Calpha%5E2%20&amp;%5Csim%20%5Cmathrm%7BInv%5Ctext%7B-%7DGamma%7D(3,%201),%20%5C%5C%0A%5Cphi_j%20&amp;%5Csim%20%5Cmathrm%7BGamma%7D(2,%200.1),%0A%5Cend%7Baligned%7D%0A%5Ctag%7B1%7D"></span> where <img src="https://latex.codecogs.com/png.latex?%5Csigma_%7B%5Calpha%7D%5E2"> describes uncertainty in the systems’ means on the logit scale and the <img src="https://latex.codecogs.com/png.latex?%5Cphi_j"> have a Gamma prior. In Bayesian terms, the parameters <img src="https://latex.codecogs.com/png.latex?%5Cboldsymbol%7B%5Ctheta%7D"> of the hierarchical model are <img src="https://latex.codecogs.com/png.latex?%5Cmu_j">, <img src="https://latex.codecogs.com/png.latex?%5Cmu_0">, <img src="https://latex.codecogs.com/png.latex?%5Calpha_j">, and <img src="https://latex.codecogs.com/png.latex?%5Cphi_j">, which determine the conditional likelihood <img src="https://latex.codecogs.com/png.latex?p(%5Cboldsymbol%7By%7D%7C%5Cboldsymbol%7B%5Ctheta%7D)"> of the observations <img src="https://latex.codecogs.com/png.latex?%5Cboldsymbol%7By%7D%20=%20%7By_%7Bkj%7D%7D">. The distributions of the parameters <img src="https://latex.codecogs.com/png.latex?%5Cboldsymbol%7B%5Ctheta%7D"> are called prior distributions, and they in turn may depend on hyperparameters <img src="https://latex.codecogs.com/png.latex?%5Cboldsymbol%7B%5Ceta%7D"> (e.g., <img src="https://latex.codecogs.com/png.latex?%5Csigma_%7B%5Calpha%7D%5E2">).</p>
+<p>In Bayesian inference, a joint posterior distribution <img src="https://latex.codecogs.com/png.latex?p(%5Cboldsymbol%7B%5Ctheta%7D,%5Cboldsymbol%7B%5Ceta%7D%7C%5Cboldsymbol%7By%7D)"> is derived for the parameters and hyperparameters using Bayes’ rule: <span id="eq-bayes"><img src="https://latex.codecogs.com/png.latex?%0Ap(%5Cboldsymbol%7B%5Ctheta%7D,%5Cboldsymbol%7B%5Ceta%7D%7C%5Cboldsymbol%7By%7D)%20%5Cpropto%20p(%5Cboldsymbol%7B%5Ceta%7D)p(%5Cboldsymbol%7B%5Ctheta%7D%7C%5Cboldsymbol%7B%5Ceta%7D)p(%5Cboldsymbol%7By%7D%7C%5Cboldsymbol%7B%5Ctheta%7D),%0A%5Ctag%7B2%7D"></span> which describes how likely different values of <img src="https://latex.codecogs.com/png.latex?%5Cboldsymbol%7B%5Ctheta%7D"> and <img src="https://latex.codecogs.com/png.latex?%5Cboldsymbol%7B%5Ceta%7D"> are, given the observations <img src="https://latex.codecogs.com/png.latex?%5Cboldsymbol%7By%7D">. In Bayesian inference, the statistical analysis focuses on the posterior distributions of the parameters.</p>
+<section id="prior-predictive-checks" class="level2">
+<h2 class="anchored" data-anchor-id="prior-predictive-checks">Prior predictive checks</h2>
+<p>To have an idea of what the model (1) does, and whether the priors we have chosen make any sense, it is a good idea to take a look at the prior predictive distributions. Here, no data is yet analysed—we only want to take the prior distributions as they are and see how the parameters and predictive distributions for <img src="https://latex.codecogs.com/png.latex?y_%7Bkj%7D"> look like with those values. We will now draw random samples from the prior and hyperprior distributions and use those random values as parameters for drawing samples from the beta distribution.</p>
+<p>The point is to see if the distributions of <img src="https://latex.codecogs.com/png.latex?%5Cmu_j"> and <img src="https://latex.codecogs.com/png.latex?y_%7Bkj%7D"> make sense given our experimental design. It could be for example that our model would <em>a priori</em> result in distributions that are focused on the extreme ends of the scale: to 0 and 1, without any probability mass in between. This would mean that before seeing any data, the model expects that all ratings would most likely be either of value 0 or 100 and that it would be extremely rare to see any ratings of intermediate values. Clearly, this is not what we expect, but rather we assume that ratings should be quite evenly distributed across the scale—and our prior predicitive distributions should then reflect this.</p>
+<div id="a6346e6f" class="cell" data-execution_count="58">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1">N <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">10000</span></span>
+<span id="cb3-2">np.random.seed(<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">123</span>)</span>
+<span id="cb3-3"></span>
+<span id="cb3-4"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># draw N samples from the prior distributions</span></span>
+<span id="cb3-5">mu0 <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> stats.norm.rvs(<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span>, <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>, size<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span>N)</span>
+<span id="cb3-6"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># the alpha_j prior depends on the hyperprior sigma_alpha, so draw them first ...</span></span>
+<span id="cb3-7">sigma_alpha <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> stats.invgamma.rvs(<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">3</span>, size<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span>N)</span>
+<span id="cb3-8"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># ... and use the sigma_alpha values to draw alpha_j</span></span>
+<span id="cb3-9">alpha_j <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> stats.norm.rvs(<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span>, sigma_alpha, size<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span>N)</span>
+<span id="cb3-10"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># note the difference between scipy and stan parameters. Here scale=10, and in stan the 2nd parameter is 0.1 = 1/scale</span></span>
+<span id="cb3-11">phi_j <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> stats.gamma.rvs(<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">2</span>, scale<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">10</span>, size<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span>N)</span>
+<span id="cb3-12"></span>
+<span id="cb3-13"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># we have logit(mu_j) = mu0 + alpha_j, so take the inverse logit (in scipy, expit) to get mu_j</span></span>
+<span id="cb3-14">mu_j <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> expit(mu0 <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+</span> alpha_j)</span>
+<span id="cb3-15"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># draw values for y based on the priors</span></span>
+<span id="cb3-16">y_kj <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> stats.beta.rvs(mu_j <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">*</span> phi_j, (<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">-</span> mu_j)<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">*</span>phi_j, size<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span>N)</span></code></pre></div></div>
+</details>
+</div>
+<p>First, let’s look at how the beta distributions look like. Here we draw 15 random pairs of <img src="https://latex.codecogs.com/png.latex?%5Cmu_j"> and <img src="https://latex.codecogs.com/png.latex?%5Cphi_j"> parameters from the priors and generate 10000 samples from the beta distribution with those values for predictions of possible <img src="https://latex.codecogs.com/png.latex?y_%7Bkj%7D">.</p>
+<div id="cell-fig-betadist" class="cell" data-execution_count="59">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1">sns.set_style(<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"white"</span>, rc<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span>{<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"axes.edgecolor"</span>: <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"0.8"</span>})</span>
+<span id="cb4-2">_, axs <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> plt.subplots(<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">3</span>,<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">5</span>, figsize<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span>(<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">7</span>, <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">5</span>), sharey<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="va" style="color: #111111;
+background-color: null;
+font-style: inherit;">True</span>, gridspec_kw<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span>{<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"hspace"</span>: <span class="fl" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0.2</span>})</span>
+<span id="cb4-3"></span>
+<span id="cb4-4"><span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">for</span> axi, ax <span class="kw" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">in</span> <span class="bu" style="color: null;
+background-color: null;
+font-style: inherit;">enumerate</span>(axs.flatten()):</span>
+<span id="cb4-5">    y_fix <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> stats.beta.rvs(mu_j[axi] <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">*</span> phi_j[axi], (<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">-</span> mu_j[axi])<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">*</span>phi_j[axi], size<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span>N)</span>
+<span id="cb4-6">    ax.hist(y_fix, bins<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">40</span>, density<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="va" style="color: #111111;
+background-color: null;
+font-style: inherit;">True</span>, histtype<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"stepfilled"</span>)</span>
+<span id="cb4-7">    ax.set_xlim((<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">-</span><span class="fl" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0.01</span>,<span class="fl" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1.01</span>))</span>
+<span id="cb4-8">    ax.set_xticks([<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span>,<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>])</span>
+<span id="cb4-9">    ax.tick_params(labelsize<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">8</span>)</span>
+<span id="cb4-10">    ax.xaxis.set_visible(<span class="va" style="color: #111111;
+background-color: null;
+font-style: inherit;">True</span>)</span>
+<span id="cb4-11">    ax.yaxis.set_visible(<span class="va" style="color: #111111;
+background-color: null;
+font-style: inherit;">False</span>)</span>
+<span id="cb4-12">    ax.set_title(<span class="vs" style="color: #20794D;
+background-color: null;
+font-style: inherit;">rf"</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">$\m</span><span class="vs" style="color: #20794D;
+background-color: null;
+font-style: inherit;">u_j = </span><span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span>mu_j[axi]<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">:.2f}</span><span class="vs" style="color: #20794D;
+background-color: null;
+font-style: inherit;">, </span><span class="er" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">\</span><span class="vs" style="color: #20794D;
+background-color: null;
+font-style: inherit;">phi_j = </span><span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span>phi_j[axi]<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">:.2f}</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">$</span><span class="vs" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"</span>, </span>
+<span id="cb4-13">                 fontdict<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span>{<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"fontsize"</span>: <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">8</span>})</span></code></pre></div></div>
+</details>
+<div class="cell-output cell-output-display">
+<div id="fig-betadist" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-betadist-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="https://petterihyvarinen.fi/blog/posts/bayesian-mushra/mushra_bayesian_files/figure-html/fig-betadist-output-1.png" class="img-fluid figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-betadist-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;3: Beta distributions with shape parameters <img src="https://latex.codecogs.com/png.latex?%5Cmu_j"> and <img src="https://latex.codecogs.com/png.latex?%5Cphi_j"> drawn from the prior distributions
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>We see that the mean values <img src="https://latex.codecogs.com/png.latex?%5Cmu_j"> go from 0.12 to 0.88 and the precisions <img src="https://latex.codecogs.com/png.latex?%5Cphi_j"> from 2.45 (very broad distribution in upper right corner) to 50.2 (narrow distribution in lower right corner). The distributions seem plausible in that there are no cases where the responses would for example be concentrated on some single value, and there is also good variability in the shapes of the distributions such that many different kinds of response profiles are plausible with the priors. Scale effects also appear to be taken into account, since as the mean gets closer to either extreme, the values start to “pack” at the boundaries, as we would also expect to happen for the actual ratings.</p>
+<p>Looking at the prior distribution for <img src="https://latex.codecogs.com/png.latex?%5Cmu_j">, we see that the means are more concentrated towards the center of the scale. This could be interpreted as a conservative prior; it is less likely to have systems with means at the very extremes. If instead of looking at the distributions of <img src="https://latex.codecogs.com/png.latex?y_%7Bkj%7D"> obtained with fixed parameters as in Figure&nbsp;3, we look at how the <img src="https://latex.codecogs.com/png.latex?y_%7Bkj%7D"> are distributed across all possible prior draws, we see that the simulated ratings are quite evenly distributed across the full scale with a bit more values in the middle, and also clear peaks at the extreme ends of the scale.</p>
+<p>As very general prior assumptions, these distributions look ok—people are usually more likely to give intermediate ratings that extreme values—but depending on the specific situation, it could make sense to fine-tune the priors. In a MUSHRA test, the midpoint of the scale does not actually correspond to some neutral value. Instead, the labels on the scale are “excellent”, “good”, “fair”, “poor”, and “bad”, and thus the midpoint would fall within the range labelled as “fair”. There can be language factors or cultural factors which might have slight effects regarding where a “neutral” answer would go on this scale; does “good” mean “ok”, and how much worse is “bad” than “poor”? So, depending on the context, one might adjust the priors for example so that higher ratings would be more likely. This would not have a dramatic effect on the results, however, since as actual observations are fitted to the model, strong evidence will always outweigh these weakly informative priors.</p>
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1">sns.set_style(<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"ticks"</span>)</span>
+<span id="cb5-2">sns.set_palette(<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"Set2"</span>)</span>
+<span id="cb5-3">fig1, ax <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> plt.subplots(<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>,<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>, figsize<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span>(<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">3</span>,<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">2</span>))</span>
+<span id="cb5-4">ax.hist(mu_j, bins<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">40</span>, density<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="va" style="color: #111111;
+background-color: null;
+font-style: inherit;">True</span>)</span>
+<span id="cb5-5">ax.set_title(<span class="vs" style="color: #20794D;
+background-color: null;
+font-style: inherit;">r"Prior predictive distribution for </span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">$\m</span><span class="vs" style="color: #20794D;
+background-color: null;
+font-style: inherit;">u_j</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">$</span><span class="vs" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"</span>)</span>
+<span id="cb5-6">sns.despine()</span>
+<span id="cb5-7"></span>
+<span id="cb5-8">fig2, ax <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> plt.subplots(<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>,<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>, figsize<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span>(<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">3</span>,<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">2</span>))</span>
+<span id="cb5-9">ax.hist(y_kj, bins<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">40</span>, density<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="va" style="color: #111111;
+background-color: null;
+font-style: inherit;">True</span>)</span>
+<span id="cb5-10">ax.set_title(<span class="vs" style="color: #20794D;
+background-color: null;
+font-style: inherit;">r"Prior predictive distribution for </span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">$</span><span class="vs" style="color: #20794D;
+background-color: null;
+font-style: inherit;">y_{kj}</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">$</span><span class="vs" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"</span>)</span>
+<span id="cb5-11">sns.despine()</span></code></pre></div></div>
+</details>
+<div id="fig-mu-pred" class="quarto-layout-panel">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-mu-pred-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="quarto-layout-row">
+<div class="cell-output cell-output-display quarto-layout-cell-subref quarto-layout-cell" data-ref-parent="fig-mu-pred" style="flex-basis: 50.0%;justify-content: flex-start;">
+<div id="fig-mu-pred-1" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-subfloat-fig figure">
+<div aria-describedby="fig-mu-pred-1-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="https://petterihyvarinen.fi/blog/posts/bayesian-mushra/mushra_bayesian_files/figure-html/fig-mu-pred-output-1.png" class="img-fluid figure-img" data-ref-parent="fig-mu-pred">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-subfloat-caption quarto-subfloat-fig" id="fig-mu-pred-1-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+(a) Distribution of system-specific means for beta distribution
+</figcaption>
+</figure>
+</div>
+</div>
+<div class="cell-output cell-output-display quarto-layout-cell-subref quarto-layout-cell" data-ref-parent="fig-mu-pred" style="flex-basis: 50.0%;justify-content: flex-start;">
+<div id="fig-mu-pred-2" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-subfloat-fig figure">
+<div aria-describedby="fig-mu-pred-2-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="https://petterihyvarinen.fi/blog/posts/bayesian-mushra/mushra_bayesian_files/figure-html/fig-mu-pred-output-2.png" class="img-fluid figure-img" data-ref-parent="fig-mu-pred">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-subfloat-caption quarto-subfloat-fig" id="fig-mu-pred-2-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+(b) Distribution of predicted observations
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-mu-pred-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;4: Prior predictive distributions
+</figcaption>
+</figure>
+</div>
+</section>
+<section id="stan-implementation" class="level2">
+<h2 class="anchored" data-anchor-id="stan-implementation">STAN implementation</h2>
+<p>The model in Equation&nbsp;1 was implemented using STAN. The model specification is given below. STAN uses the MCMC method (<em>Markov Chain Monte Carlo</em>) to numerically solve the posterior distribution — by simulating a sufficient number of samples from the posterior distribution implied by the model, the distribution can be approximated to the desired accuracy.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6" style="background: #f1f3f5;"><pre class="sourceCode stan code-with-copy"><code class="sourceCode stan"><span id="cb6-1"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">// Hierarchical Beta regression for MUSHRA scores</span></span>
+<span id="cb6-2"></span>
+<span id="cb6-3"><span class="kw" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">data</span> {</span>
+<span id="cb6-4">  <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>&gt; N;                   <span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">// total observations</span></span>
+<span id="cb6-5">  <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>&gt; S;                   <span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">// number of systems</span></span>
+<span id="cb6-6">  <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">array</span>[N] <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>&gt; system_id;  <span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">// system id of each observation</span></span>
+<span id="cb6-7"></span>
+<span id="cb6-8">  <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">array</span>[N] <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">real</span>&lt;<span class="kw" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span>,<span class="kw" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">upper</span>=<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>&gt; y; <span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">// rescaled scores in (0,1)</span></span>
+<span id="cb6-9">}</span>
+<span id="cb6-10"></span>
+<span id="cb6-11"><span class="kw" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">parameters</span> {</span>
+<span id="cb6-12">  <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">real</span> mu_0;                           <span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">// global intercept on logit scale</span></span>
+<span id="cb6-13">  <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">array</span>[S] <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">real</span> alpha_j;               <span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">// system offsets (logit scale)</span></span>
+<span id="cb6-14">  <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">real</span>&lt;<span class="kw" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span>&gt; sigma_alpha;           <span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">// sd for system effects</span></span>
+<span id="cb6-15">  <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">array</span>[S] <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">real</span>&lt;<span class="kw" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span>&gt; phi_j;        <span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">// Beta precision</span></span>
+<span id="cb6-16">}</span>
+<span id="cb6-17"></span>
+<span id="cb6-18"><span class="kw" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">transformed parameters</span> {</span>
+<span id="cb6-19">  <span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">// linear predictor on logit scale for each observation</span></span>
+<span id="cb6-20">  <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">vector</span>[N] eta;</span>
+<span id="cb6-21">  <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">for</span> (n <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">in</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>:N) {</span>
+<span id="cb6-22">    eta[n] = mu_0 + alpha_j[system_id[n]];</span>
+<span id="cb6-23">  }</span>
+<span id="cb6-24">}</span>
+<span id="cb6-25"></span>
+<span id="cb6-26"><span class="kw" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">model</span> {</span>
+<span id="cb6-27">  <span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">// Priors</span></span>
+<span id="cb6-28">  mu_0 ~ normal(<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span>, <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>);</span>
+<span id="cb6-29">  alpha_j ~ normal(<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span>, sigma_alpha);</span>
+<span id="cb6-30">  sigma_alpha ~ inv_gamma(<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">3</span>, <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>);</span>
+<span id="cb6-31">  phi_j ~ gamma(<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">2</span>, <span class="fl" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0.1</span>);</span>
+<span id="cb6-32"></span>
+<span id="cb6-33">  <span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">// Likelihood: parameterize Beta by mean mu (inv_logit(eta)) and precision phi</span></span>
+<span id="cb6-34">  <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">for</span> (n <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">in</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>:N) {</span>
+<span id="cb6-35">    <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">real</span> mu_j = inv_logit(eta[n]);</span>
+<span id="cb6-36">    y[n] ~ beta(mu_j * phi_j[system_id[n]], (<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span> - mu_j) * phi_j[system_id[n]]);</span>
+<span id="cb6-37">  }</span>
+<span id="cb6-38">}</span></code></pre></div></div>
+</section>
+<section id="model-fitting" class="level2">
+<h2 class="anchored" data-anchor-id="model-fitting">Model fitting</h2>
+<p>We then take the STAN model above and fit the actual observations (see Figure&nbsp;2) to it. First the ratings <img src="https://latex.codecogs.com/png.latex?r_%7Bkj%7D"> are scaled to the interval [0, 1] and those values, along with the information about the system for which that rating was given, are passed to the STAN model. The MCMC runs four separate chains, which are first sampled for some time to warm up and stabilise the chains, and then 5000 draws are taken from each Markov chain for the actual posterior draws.</p>
+<div id="903de4ce" class="cell" data-execution_count="61">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1">model <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> csp.CmdStanModel(stan_file<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"mushra_simple.stan"</span>)</span>
+<span id="cb7-2"></span>
+<span id="cb7-3"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># rescale raw scores [0,100] to [0,1] for beta regression</span></span>
+<span id="cb7-4">eps <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> <span class="fl" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0.5</span></span>
+<span id="cb7-5">y <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> (df[<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"ratings"</span>] <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+</span> eps) <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">/</span> (<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">100</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">2</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">*</span>eps)</span>
+<span id="cb7-6"></span>
+<span id="cb7-7">data <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> {<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"N"</span>: df.shape[<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span>], <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"S"</span>: df[<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"systems"</span>].unique().shape[<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span>], </span>
+<span id="cb7-8">        <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"system_id"</span>: df[<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"systems"</span>], <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"y"</span>: y}</span>
+<span id="cb7-9">sample <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> model.sample(data <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> data, seed <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">121</span>,</span>
+<span id="cb7-10">                      iter_warmup <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">5000</span>, iter_sampling <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">5000</span>,</span>
+<span id="cb7-11">                      show_progress <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> <span class="va" style="color: #111111;
+background-color: null;
+font-style: inherit;">False</span>, show_console <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> <span class="va" style="color: #111111;
+background-color: null;
+font-style: inherit;">False</span>, fixed_param<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="va" style="color: #111111;
+background-color: null;
+font-style: inherit;">False</span>)</span></code></pre></div></div>
+</details>
+</div>
+<p>Once the MCMC has completed, we can examine the results. First, we check that the simulation chains have converged to the same values for the parameters. This is indicated by the value <code>R_hat</code> in the following table, and quoting <a href="https://mc-stan.org/rstan/reference/Rhat.html">STAN documentation</a>, the <code>R_hat</code> convergence diagnostic …</p>
+<blockquote class="blockquote">
+<p>[…] compares the between- and within-chain estimates for model parameters and other univariate quantities of interest. If chains have not mixed well (ie, the between- and within-chain estimates don’t agree), R-hat is larger than 1. We recommend running at least four chains by default and only using the sample if R-hat is less than 1.05.</p>
+</blockquote>
+<p>All parameters and hyperparameters have an <code>R_hat</code> of 1.0, so all good so far.</p>
+<div id="74fe783c" class="cell" data-execution_count="62">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1">df_summary <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> sample.summary(sig_figs<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">2</span>)</span>
+<span id="cb8-2">df_summary.iloc[:<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">15</span>,:]</span></code></pre></div></div>
+</details>
+<div class="cell-output cell-output-display" data-execution_count="62">
+<div>
+
+
+<table class="dataframe caption-top table table-sm table-striped small" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">Mean</th>
+<th data-quarto-table-cell-role="th">MCSE</th>
+<th data-quarto-table-cell-role="th">StdDev</th>
+<th data-quarto-table-cell-role="th">MAD</th>
+<th data-quarto-table-cell-role="th">5%</th>
+<th data-quarto-table-cell-role="th">50%</th>
+<th data-quarto-table-cell-role="th">95%</th>
+<th data-quarto-table-cell-role="th">ESS_bulk</th>
+<th data-quarto-table-cell-role="th">ESS_tail</th>
+<th data-quarto-table-cell-role="th">ESS_bulk/s</th>
+<th data-quarto-table-cell-role="th">R_hat</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">lp__</th>
+<td>130.000</td>
+<td>0.0320</td>
+<td>2.70</td>
+<td>2.60</td>
+<td>130.00</td>
+<td>130.000</td>
+<td>140.000</td>
+<td>7200.0</td>
+<td>12000.0</td>
+<td>150.0</td>
+<td>1.0</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">mu_0</th>
+<td>-0.067</td>
+<td>0.0110</td>
+<td>0.69</td>
+<td>0.68</td>
+<td>-1.20</td>
+<td>-0.072</td>
+<td>1.100</td>
+<td>3800.0</td>
+<td>6100.0</td>
+<td>78.0</td>
+<td>1.0</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">alpha_j[1]</th>
+<td>4.600</td>
+<td>0.0110</td>
+<td>0.74</td>
+<td>0.72</td>
+<td>3.30</td>
+<td>4.600</td>
+<td>5.800</td>
+<td>4300.0</td>
+<td>6800.0</td>
+<td>88.0</td>
+<td>1.0</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">alpha_j[2]</th>
+<td>0.900</td>
+<td>0.0110</td>
+<td>0.73</td>
+<td>0.72</td>
+<td>-0.30</td>
+<td>0.900</td>
+<td>2.100</td>
+<td>4100.0</td>
+<td>6900.0</td>
+<td>84.0</td>
+<td>1.0</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">alpha_j[3]</th>
+<td>0.620</td>
+<td>0.0110</td>
+<td>0.72</td>
+<td>0.71</td>
+<td>-0.56</td>
+<td>0.620</td>
+<td>1.800</td>
+<td>4000.0</td>
+<td>6300.0</td>
+<td>82.0</td>
+<td>1.0</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">alpha_j[4]</th>
+<td>-1.200</td>
+<td>0.0120</td>
+<td>0.74</td>
+<td>0.73</td>
+<td>-2.50</td>
+<td>-1.200</td>
+<td>-0.028</td>
+<td>4200.0</td>
+<td>6500.0</td>
+<td>86.0</td>
+<td>1.0</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">alpha_j[5]</th>
+<td>-2.100</td>
+<td>0.0120</td>
+<td>0.75</td>
+<td>0.73</td>
+<td>-3.30</td>
+<td>-2.000</td>
+<td>-0.820</td>
+<td>4100.0</td>
+<td>6900.0</td>
+<td>85.0</td>
+<td>1.0</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">alpha_j[6]</th>
+<td>-3.000</td>
+<td>0.0120</td>
+<td>0.78</td>
+<td>0.76</td>
+<td>-4.30</td>
+<td>-3.000</td>
+<td>-1.800</td>
+<td>4400.0</td>
+<td>7400.0</td>
+<td>90.0</td>
+<td>1.0</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">sigma_alpha</th>
+<td>2.400</td>
+<td>0.0056</td>
+<td>0.68</td>
+<td>0.57</td>
+<td>1.50</td>
+<td>2.200</td>
+<td>3.600</td>
+<td>19000.0</td>
+<td>13000.0</td>
+<td>400.0</td>
+<td>1.0</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">phi_j[1]</th>
+<td>77.000</td>
+<td>0.2000</td>
+<td>30.00</td>
+<td>28.00</td>
+<td>35.00</td>
+<td>73.000</td>
+<td>130.000</td>
+<td>19000.0</td>
+<td>12000.0</td>
+<td>390.0</td>
+<td>1.0</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">phi_j[2]</th>
+<td>4.300</td>
+<td>0.0087</td>
+<td>1.30</td>
+<td>1.30</td>
+<td>2.40</td>
+<td>4.200</td>
+<td>6.800</td>
+<td>23000.0</td>
+<td>14000.0</td>
+<td>470.0</td>
+<td>1.0</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">phi_j[3]</th>
+<td>6.500</td>
+<td>0.0130</td>
+<td>2.00</td>
+<td>2.00</td>
+<td>3.60</td>
+<td>6.300</td>
+<td>10.000</td>
+<td>23000.0</td>
+<td>14000.0</td>
+<td>480.0</td>
+<td>1.0</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">phi_j[4]</th>
+<td>3.600</td>
+<td>0.0080</td>
+<td>1.20</td>
+<td>1.10</td>
+<td>1.90</td>
+<td>3.500</td>
+<td>5.800</td>
+<td>21000.0</td>
+<td>13000.0</td>
+<td>430.0</td>
+<td>1.0</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">phi_j[5]</th>
+<td>6.800</td>
+<td>0.0160</td>
+<td>2.40</td>
+<td>2.30</td>
+<td>3.40</td>
+<td>6.500</td>
+<td>11.000</td>
+<td>22000.0</td>
+<td>12000.0</td>
+<td>440.0</td>
+<td>1.0</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">phi_j[6]</th>
+<td>10.000</td>
+<td>0.0300</td>
+<td>4.20</td>
+<td>4.00</td>
+<td>4.30</td>
+<td>9.500</td>
+<td>18.000</td>
+<td>18000.0</td>
+<td>12000.0</td>
+<td>360.0</td>
+<td>1.0</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
+<p>We can also look at the MCMC samples with <a href="https://python.arviz.org/en/stable/index.html">ArviZ</a> (Figure&nbsp;5), which is a visual tool for working with bayesian models in Python. On the right panel, there are the 5000 individual draws for each chain and on the left panel, the distribution of those drawn values.</p>
+<div id="cell-fig-arviz" class="cell" data-execution_count="63">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1">az.style.use(<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"arviz-doc"</span>)</span>
+<span id="cb9-2">az.plot_trace(sample, figsize<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span>(<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">5</span>, <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">7</span>), backend_kwargs<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span>{<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"dpi"</span>: <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">144</span>})</span>
+<span id="cb9-3"></span>
+<span id="cb9-4">phi_draws <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> sample.stan_variable(<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"phi_j"</span>)</span>
+<span id="cb9-5"></span>
+<span id="cb9-6">mu0_draws <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> sample.stan_variable(<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"mu_0"</span>)</span>
+<span id="cb9-7">alpha_draws <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> sample.stan_variable(<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"alpha_j"</span>)</span>
+<span id="cb9-8">mu_draws <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> expit(mu0_draws[:, np.newaxis] <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+</span> alpha_draws)<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span></code></pre></div></div>
+</details>
+<div class="cell-output cell-output-display">
+<div id="fig-arviz" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-arviz-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="https://petterihyvarinen.fi/blog/posts/bayesian-mushra/mushra_bayesian_files/figure-html/fig-arviz-output-1.png" class="img-fluid figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-arviz-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;5: MCMC traces for model parameters
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>Looking at the draws for <img src="https://latex.codecogs.com/png.latex?%5Cmu_0"> (labeled as <strong>mu_0</strong>) there seems to be only one curve on the left, but it is just that the distributions for the four chains agree so well that they are basically overlaid and appear as a single curve. This is as we would hope—if we would get diverging simulation chains and different distributions for the different chains, it would mean that something’s unstable and we couldn’t trust the results. For <img src="https://latex.codecogs.com/png.latex?%5Calpha_j">, <img src="https://latex.codecogs.com/png.latex?%5Cphi_j"> and <code>eta</code>, the plots show individual curves for each system-specific distribution. In the next step of the analysis, the values of <code>eta</code> are then mapped with the inverse logit to the [0, 1] range, giving us our <img src="https://latex.codecogs.com/png.latex?%5Cmu_j">.</p>
+</section>
+</section>
+<section id="posterior-analysis" class="level1">
+<h1>Posterior analysis</h1>
+<section id="posterior-predictive-checks" class="level2">
+<h2 class="anchored" data-anchor-id="posterior-predictive-checks">Posterior predictive checks</h2>
+<p>When we have the full model fitted with data, we’d first like to check that the model makes sense. As we did with the priors, we will now first look at what the full model actually does with the parameter distributions that we’ve obtained. In particular, we want to be sure that the model fits with our observations and has not converged to some strange combination of parameter values.</p>
+<p>Since the parameter values are drawn from a distribution, we can take each draw of parameters and simulate predictions <img src="https://latex.codecogs.com/png.latex?%5Ctilde%7By%7D"> for each combination. But it’s also possible to take point estimates of the parameter distributions and use those fixed values. Here I’ll use the posterior means for each parameter.</p>
+<div id="cell-fig-posteriorpredictive" class="cell" data-execution_count="72">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1">plt.rcParams[<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"figure.dpi"</span>] <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">144</span></span>
+<span id="cb10-2">sns.set_theme(context<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"notebook"</span>, style<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"whitegrid"</span>, palette<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"Dark2"</span>)</span>
+<span id="cb10-3">fig, axs <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> plt.subplots(<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">6</span>,<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>, sharex<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="va" style="color: #111111;
+background-color: null;
+font-style: inherit;">True</span>, figsize<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span>(<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">3</span>,<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">6</span>), gridspec_kw<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span>{<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"hspace"</span>: <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span>})</span>
+<span id="cb10-4"></span>
+<span id="cb10-5"><span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">for</span> i <span class="kw" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">in</span> <span class="bu" style="color: null;
+background-color: null;
+font-style: inherit;">range</span>(<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">6</span>):</span>
+<span id="cb10-6"></span>
+<span id="cb10-7">    mu_i <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> mu_draws[:, i].mean()</span>
+<span id="cb10-8">    phi_i <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> phi_draws[:, i].mean()</span>
+<span id="cb10-9">    a <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> mu_i <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">*</span> phi_i</span>
+<span id="cb10-10">    b <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> (<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">-</span> mu_i) <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">*</span> phi_i</span>
+<span id="cb10-11"></span>
+<span id="cb10-12">    x <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> np.linspace(</span>
+<span id="cb10-13">        stats.beta.ppf(<span class="fl" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0.001</span>, a, b), </span>
+<span id="cb10-14">        stats.beta.ppf(<span class="fl" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0.999</span>, a, b), </span>
+<span id="cb10-15">        <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">100</span></span>
+<span id="cb10-16">    )</span>
+<span id="cb10-17">    x_samples <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> stats.beta.pdf(x, a, b)</span>
+<span id="cb10-18">    axs[i].fill_between(<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">100</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">*</span>x, x_samples <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">/</span> x_samples.<span class="bu" style="color: null;
+background-color: null;
+font-style: inherit;">max</span>(), </span>
+<span id="cb10-19">                        facecolor<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="ss" style="color: #20794D;
+background-color: null;
+font-style: inherit;">f"C</span><span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span>i<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">}</span><span class="ss" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"</span>, alpha<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="fl" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0.3</span>, </span>
+<span id="cb10-20">                        label<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="vs" style="color: #20794D;
+background-color: null;
+font-style: inherit;">r"</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">$</span><span class="vs" style="color: #20794D;
+background-color: null;
+font-style: inherit;">p</span><span class="kw" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">(</span><span class="ch" style="color: #20794D;
+background-color: null;
+font-style: inherit;">\t</span><span class="vs" style="color: #20794D;
+background-color: null;
+font-style: inherit;">ilde{y}</span><span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">|</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">\b</span><span class="vs" style="color: #20794D;
+background-color: null;
+font-style: inherit;">oldsymbol{y}</span><span class="kw" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">)</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">$</span><span class="vs" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"</span>)</span>
+<span id="cb10-21">    axs[i].plot(<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">100</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">*</span>x, x_samples <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">/</span> x_samples.<span class="bu" style="color: null;
+background-color: null;
+font-style: inherit;">max</span>(), color<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="ss" style="color: #20794D;
+background-color: null;
+font-style: inherit;">f"C</span><span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span>i<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">}</span><span class="ss" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"</span>, </span>
+<span id="cb10-22">                alpha<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="fl" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0.7</span>, lw<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="fl" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1.5</span>)</span>
+<span id="cb10-23"></span>
+<span id="cb10-24">    rtgs <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> df[df[<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"systems"</span>] <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">==</span> i<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>]</span>
+<span id="cb10-25">    xs <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> rtgs[<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"ratings"</span>].values</span>
+<span id="cb10-26">    axs[i].plot(xs, stats.uniform.rvs(<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">-</span><span class="fl" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0.2</span>, <span class="fl" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0.2</span>, size<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="bu" style="color: null;
+background-color: null;
+font-style: inherit;">len</span>(xs)), <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">'o'</span>, </span>
+<span id="cb10-27">                markersize<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">3</span>, c<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="ss" style="color: #20794D;
+background-color: null;
+font-style: inherit;">f"C</span><span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span>i<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">}</span><span class="ss" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"</span>, alpha<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="fl" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0.8</span>, label<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="vs" style="color: #20794D;
+background-color: null;
+font-style: inherit;">r"</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">$</span><span class="vs" style="color: #20794D;
+background-color: null;
+font-style: inherit;">y_{kj}</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">$</span><span class="vs" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"</span>, </span>
+<span id="cb10-28">                mec<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"0.3"</span>, mew<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="fl" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1.0</span>)</span>
+<span id="cb10-29">    axs[i].text(<span class="fl" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0.1</span>, <span class="fl" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0.8</span>, <span class="ss" style="color: #20794D;
+background-color: null;
+font-style: inherit;">f"System </span><span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span>i<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span><span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">}</span><span class="ss" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"</span>, transform<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span>axs[i].transAxes, </span>
+<span id="cb10-30">                verticalalignment<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"top"</span>, horizontalalignment<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"left"</span>)</span>
+<span id="cb10-31">    axs[i].vlines([<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span>, <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">20</span>, <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">40</span>, <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">60</span>, <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">80</span>, <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">100</span>], <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span>, <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>, </span>
+<span id="cb10-32">                  transform<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span>axs[i].get_xaxis_transform(), lw<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>, </span>
+<span id="cb10-33">                  colors<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"0.85"</span>, zorder<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span>)</span>
+<span id="cb10-34"></span>
+<span id="cb10-35">    axs[i].set_ylim((<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">-</span><span class="fl" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0.3</span>, <span class="fl" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1.3</span>))</span>
+<span id="cb10-36">    axs[i].set_xlim((<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">-</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">5</span>, <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">105</span>))</span>
+<span id="cb10-37">    axs[i].set_yticks([])</span>
+<span id="cb10-38">    axs[i].spines[<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"top"</span>].set_visible(<span class="va" style="color: #111111;
+background-color: null;
+font-style: inherit;">False</span>)</span>
+<span id="cb10-39">    axs[i].spines[<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"left"</span>].set_visible(<span class="va" style="color: #111111;
+background-color: null;
+font-style: inherit;">False</span>)</span>
+<span id="cb10-40">    axs[i].spines[<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"right"</span>].set_visible(<span class="va" style="color: #111111;
+background-color: null;
+font-style: inherit;">False</span>)</span>
+<span id="cb10-41">    <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">if</span> i <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">&lt;</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">5</span>:</span>
+<span id="cb10-42">        axs[i].tick_params(length<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span>)</span>
+<span id="cb10-43">        axs[i].spines[<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"bottom"</span>].set_visible(<span class="va" style="color: #111111;
+background-color: null;
+font-style: inherit;">False</span>)</span>
+<span id="cb10-44">    <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">else</span>:</span>
+<span id="cb10-45">        axs[i].spines[<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"bottom"</span>].set_visible(<span class="va" style="color: #111111;
+background-color: null;
+font-style: inherit;">True</span>)</span>
+<span id="cb10-46">        axs[i].spines[<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"bottom"</span>].set_color(<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"0.7"</span>)</span>
+<span id="cb10-47">        axs[i].set_xlabel(<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"Rating"</span>)</span>
+<span id="cb10-48">        _ <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> axs[i].set_xticks([<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span>, <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">20</span>, <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">40</span>, <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">60</span>, <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">80</span>, <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">100</span>])</span>
+<span id="cb10-49">        axs[i].legend()</span>
+<span id="cb10-50">fig.suptitle(<span class="vs" style="color: #20794D;
+background-color: null;
+font-style: inherit;">r"Posterior predictive distributions </span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">$</span><span class="vs" style="color: #20794D;
+background-color: null;
+font-style: inherit;">p</span><span class="kw" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">(</span><span class="ch" style="color: #20794D;
+background-color: null;
+font-style: inherit;">\t</span><span class="vs" style="color: #20794D;
+background-color: null;
+font-style: inherit;">ilde{y}</span><span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">|</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">\b</span><span class="vs" style="color: #20794D;
+background-color: null;
+font-style: inherit;">oldsymbol{y}</span><span class="kw" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">)</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">$</span><span class="vs" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"</span>, </span>
+<span id="cb10-51">                 fontsize<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">10</span>)<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span></code></pre></div></div>
+</details>
+<div class="cell-output cell-output-display">
+<div id="fig-posteriorpredictive" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-posteriorpredictive-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="https://petterihyvarinen.fi/blog/posts/bayesian-mushra/mushra_bayesian_files/figure-html/fig-posteriorpredictive-output-1.png" class="img-fluid figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-posteriorpredictive-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;6: Posterior predictive distributions for each system. Here, the values of <img src="https://latex.codecogs.com/png.latex?y"> are scaled to [0, 100] for comparison with original listening test ratings <img src="https://latex.codecogs.com/png.latex?r_%7Bkj%7D">.
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>The distributions plotted as shaded areas seem to fit nicely with the observations, spanning the range of given ratings. The scale end effects are shown very nicely; where there are multiple ratings at either extreme, the distribution is “pulled” towards the edge.</p>
+</section>
+<section id="rs-with-posteriors" class="level2">
+<h2 class="anchored" data-anchor-id="rs-with-posteriors">R&amp;S with posteriors</h2>
+<p>Now that we have the bayesian model for our listening test data and the posterior distributions for the model parameters, actually the R&amp;S part is very very simple. Thinking back on the Gibbons <em>et al.</em> quote earlier: <em>“… ranking and selection procedures are statistical techniques for comparing the parameters of some <img src="https://latex.codecogs.com/png.latex?k"> populations …”</em>, we now have in fact a full statistical model describing those parameters, and can calculate the R&amp;S statistics from the posterior draws.</p>
+<p>As an example, if we look at the posterior distributions of <img src="https://latex.codecogs.com/png.latex?%5Cmu_j"> (Figure&nbsp;7), we see that the distribution of <img src="https://latex.codecogs.com/png.latex?%5Cmu_2"> seems to have most mass above the others (apart from the reference system <img src="https://latex.codecogs.com/png.latex?%5Cmu_1">). But how confident can we be in stating that system 2 is on average the second best? We calculate from the posterior draws <img src="https://latex.codecogs.com/png.latex?%5Cmathrm%7BPr%7D(%5Cmu_2%20%3E%20%5Cmathrm%7Bmax%7D_%7Bj%20%5Cneq%203%7D%20%5Cmu_j)">, or in practice count the number of posterior draws where the value of <img src="https://latex.codecogs.com/png.latex?%5Cmu_2"> ranks second and normalise with the total number of draws. Basically it’s a competition between <img src="https://latex.codecogs.com/png.latex?%5Cmu_3"> and <img src="https://latex.codecogs.com/png.latex?%5Cmu_2">, and on each posterior draw, we get a single value from each distribution; as the distributions overla, sometimes the value for <img src="https://latex.codecogs.com/png.latex?%5Cmu_3"> is higher than the one for <img src="https://latex.codecogs.com/png.latex?%5Cmu_2">, but more often <img src="https://latex.codecogs.com/png.latex?%5Cmu_2"> is higher than <img src="https://latex.codecogs.com/png.latex?%5Cmu_3">. The result is that system 2 ranks second best in 81.5% of the posterior draws (and system 3 18.5% of the time).</p>
+<div id="cell-fig-muposterior" class="cell" data-execution_count="74">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1">best_system <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> np.argmax(mu_draws[:, <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>:<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">5</span>], axis<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>) <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">2</span></span>
+<span id="cb11-2">vals, counts <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> np.unique(best_system, return_counts<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="va" style="color: #111111;
+background-color: null;
+font-style: inherit;">True</span>)</span>
+<span id="cb11-3"></span>
+<span id="cb11-4"><span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">for</span> v, c <span class="kw" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">in</span> <span class="bu" style="color: null;
+background-color: null;
+font-style: inherit;">zip</span>(vals, counts):</span>
+<span id="cb11-5">    <span class="bu" style="color: null;
+background-color: null;
+font-style: inherit;">print</span>(<span class="ss" style="color: #20794D;
+background-color: null;
+font-style: inherit;">f"System </span><span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span>v<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">}</span><span class="ss" style="color: #20794D;
+background-color: null;
+font-style: inherit;"> is 2nd best with probability </span><span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">100</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">*</span>c<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">/</span>mu_draws<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">.</span>shape[<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span>]<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">:.1f}</span><span class="ss" style="color: #20794D;
+background-color: null;
+font-style: inherit;">%"</span>)</span>
+<span id="cb11-6"></span>
+<span id="cb11-7">sns.set_theme(context<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"notebook"</span>, style<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"darkgrid"</span>, palette<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"Dark2"</span>)</span>
+<span id="cb11-8">_, ax <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> plt.subplots(<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>,<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>,figsize<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span>(<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">4</span>,<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">3</span>))</span>
+<span id="cb11-9"><span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">for</span> i <span class="kw" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">in</span> <span class="bu" style="color: null;
+background-color: null;
+font-style: inherit;">range</span>(<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">6</span>):</span>
+<span id="cb11-10">    h, bins <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> np.histogram(<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">100</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">*</span>mu_draws[:, i], bins<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">50</span>)</span>
+<span id="cb11-11">    ax.stairs(h, bins, fill<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="va" style="color: #111111;
+background-color: null;
+font-style: inherit;">True</span>, ls<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"-"</span>, ec<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"0.1"</span>, alpha<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="fl" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0.5</span>, lw<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="fl" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1.0</span>)</span>
+<span id="cb11-12">    system_mean <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">100</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">*</span>mu_draws[:,i].mean()</span>
+<span id="cb11-13">    <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">if</span> i <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">==</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span>:</span>
+<span id="cb11-14">        system_mean <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">90</span></span>
+<span id="cb11-15">    ax.text(system_mean, <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">2300</span>, <span class="ss" style="color: #20794D;
+background-color: null;
+font-style: inherit;">f"</span><span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span>i<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span><span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">}</span><span class="ss" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"</span>, horizontalalignment<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"center"</span>, c<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="ss" style="color: #20794D;
+background-color: null;
+font-style: inherit;">f"C</span><span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span>i<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">}</span><span class="ss" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"</span>, </span>
+<span id="cb11-16">            fontweight<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"extra bold"</span>)</span>
+<span id="cb11-17">ax.text(<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span>, <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">2300</span>, <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"$j$:"</span>, horizontalalignment<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"left"</span>)</span>
+<span id="cb11-18"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">#sns.despine(ax=ax, left=True, trim=True)</span></span>
+<span id="cb11-19">ax.set_yticks([])</span>
+<span id="cb11-20">ax.set_xlim((<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span>,<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">100</span>))</span>
+<span id="cb11-21"></span>
+<span id="cb11-22">ax.set_xlabel(<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"Rating"</span>)</span>
+<span id="cb11-23">ax.set_title(<span class="vs" style="color: #20794D;
+background-color: null;
+font-style: inherit;">r"Posterior distributions for </span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">$\m</span><span class="vs" style="color: #20794D;
+background-color: null;
+font-style: inherit;">u_j</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">$</span><span class="vs" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"</span>)</span>
+<span id="cb11-24"></span>
+<span id="cb11-25">plt.savefig(<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"preview.png"</span>)<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">;</span></span></code></pre></div></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>System 2 is 2nd best with probability 81.5%
+System 3 is 2nd best with probability 18.5%</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<div id="fig-muposterior" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-muposterior-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="https://petterihyvarinen.fi/blog/posts/bayesian-mushra/mushra_bayesian_files/figure-html/fig-muposterior-output-2.png" class="img-fluid figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-muposterior-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;7: Posterior distributions for system-specific mean ratings <img src="https://latex.codecogs.com/png.latex?%5Cmu_j">, scaled from [0, 1] to the original [0, 100] range.
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>It is now up to the experimenter to decide whether the 81.5% probability is enough for stating that system 2 is the best among the systems under test. There is no statistical test for rejection or acceptance of a hypothesis. One can decide in advance what level of evidence will be considered credible enough.</p>
+<p>We could also calculate different R&amp;S statistics from the posteriors. For example, we could now say with very high confidence (in 100% of posterior draws) <em>either</em> system 2 or system 3 is the second-best.</p>
+</section>
+<section id="indifference-zone-rs" class="level2">
+<h2 class="anchored" data-anchor-id="indifference-zone-rs">Indifference-zone R&amp;S</h2>
+<p>An interesting R&amp;S formulation is the so-called <em>indifference-zone</em> (IZ) -approach, where make a decision that when the difference between mean ratings of two systems is less than some pre-defined value—let’s say 5 points on the 0–100 scale—then it means that there is in practice no real difference between the systems. So if we had a situation where our listening test top-two systems had mean ratings <img src="https://latex.codecogs.com/png.latex?%5Cmu_A"> = 82 and <img src="https://latex.codecogs.com/png.latex?%5Cmu_B"> = 85, and all other systems had ratings below 40, then we would not be making a huge mistake by stating that system A is the best; a difference of three points in a MUSHRA test is in practice degligible and you’d be just as correct in announcing either A or B as the best. So we could say that in a MUSHRA test we would be <em>indifferent</em> to differences less than 5 points and do our R&amp;S analysis accordingly.</p>
+<p>For our data, we would only need to consider systems 2 and 3. For the IZ analysis we would first set <img src="https://latex.codecogs.com/png.latex?%5Cdelta_%7BIZ%7D%20=%205">, and then calculate for system 2: <img src="https://latex.codecogs.com/png.latex?p_%7BIZ,2%7D%20=%20%5Cmathrm%7BPr%7D(%5Cmu_2%20%3E%20%5Cmu_3),%20%5Cquad%20%5Cmathrm%7Bif%7D%20%5C,%20%7C%5Cmu_2%20-%20%5Cmu_3%7C%20%3E%20%5Cdelta_%7BIZ%7D"></p>
+<div id="a322f096" class="cell" data-execution_count="66">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># scale delta_IZ to [0, 1]</span></span>
+<span id="cb13-2">delta_IZ <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">5</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">/</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">100</span></span>
+<span id="cb13-3"></span>
+<span id="cb13-4">idxs <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> np.where(np.<span class="bu" style="color: null;
+background-color: null;
+font-style: inherit;">abs</span>(mu_draws[:,<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>] <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">-</span> mu_draws[:,<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">2</span>]) <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">&gt;</span> delta_IZ)[<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span>]</span>
+<span id="cb13-5"><span class="bu" style="color: null;
+background-color: null;
+font-style: inherit;">print</span>(<span class="ss" style="color: #20794D;
+background-color: null;
+font-style: inherit;">f"p_IZ,2 = </span><span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">{</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">100</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">*</span>np<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">.</span><span class="bu" style="color: null;
+background-color: null;
+font-style: inherit;">sum</span>(mu_draws[idxs,<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>] <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">&gt;</span> mu_draws[idxs,<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">2</span>])<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">/</span>idxs<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">.</span>shape[<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span>]<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">:.1f}</span><span class="ss" style="color: #20794D;
+background-color: null;
+font-style: inherit;">%"</span>)</span></code></pre></div></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>p_IZ,2 = 90.6%</code></pre>
+</div>
+</div>
+<p>Here we see that the probability of system 2 being ranked above system 3 increased from the 81.5% earlier to 90.6% with the IZ formulation. Here we are only interested in being correct, <em>if</em> the real mean difference between systems is at least 5 points. If it would turn out to be less than 5 points, then we don’t really care which system is labeled as best.</p>
+<p>Depending on the precise experimental setup and research questions, the IZ formulation can seem either a bit weird or very useful. In the MUSHRA context, it’s not immediately obvious where we might use it, although the formulation itself feels intuitive—small differences are not very important. But if instead of MUSHRA scores we would be modeling for example a financial utility function, and we would have to pick one system that would maximise our utility (e.g., best arm identification), then the IZ formulation seems quite smart. For two systems that are very close to each other, it doesn’t matter that much which one we pick—the utility will be about the same for both—but if there is a large difference between the utilities, then in those cases it really is important to pick the one that results in a higher utility rather than a lower utility, and so it makes sense to focus mostly on begin correct in those cases where the selection makes a bigger difference.</p>
+</section>
+</section>
+<section id="wrapping-up" class="level1">
+<h1>Wrapping up</h1>
+<p>Modeling the listening test results as a hierarchical bayesian model and extracting R&amp;S statistics from the posteriors aligns very well with the basic intuition and prior knowledge we have about sensory evaluation in general. Instead of imagining unintuitive null hypotheses and finding out whether or not they are believable given our data, we can directly seek answers to those questions that are relevant in the context of audio evaluation.</p>
+<p>The utility of the bayesian model is not restricted to analysis of already-conducted experiments, but as mentioned earlier, can be used in optimising ongoing experiments with bayesian experimental design. From the R&amp;S point-of-view, if we are interested in identifying only a few best systems, it follows that we don’t need to spend so much time and effort on those systems which we can quite early on rule out from the top ranking positions. If we want to know which system is the best out of ten systems, then we don’t really care which systems are placed exactly at positions 5–10, but we do care which one is at position 1.</p>
+<p>The flexibility of the bayesian framework is a big advantage, as we don’t have to pick and choose separate statistical tests for each particular step in our statistical modeling, but can simply work with the same model all throughout the analysis.</p>
+
+
+
+</section>
+
+<div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body" data-entry-spacing="0" data-line-spacing="2">
+<div id="ref-dudewicz1980" class="csl-entry">
+<div class="csl-left-margin">1. </div><div class="csl-right-inline">Dudewicz, E. J. <a href="https://doi.org/10.2307/1268390">Ranking (<span>Ordering</span>) and <span>Selection</span>: <span>An</span> <span>Overview</span> of <span>How</span> to <span>Select</span> the <span>Best</span></a>. <em>Technometrics</em> <strong>22</strong>, 113 (1980).</div>
+</div>
+<div id="ref-hong2021" class="csl-entry">
+<div class="csl-left-margin">2. </div><div class="csl-right-inline">Hong, L. J., Fan, W. &amp; Luo, J. <a href="https://doi.org/10.1007/s42524-021-0152-6">Review on ranking and selection: <span>A</span> new perspective</a>. <em>Frontiers of Engineering Management</em> <strong>8</strong>, 321–343 (2021).</div>
+</div>
+<div id="ref-gibbons1979" class="csl-entry">
+<div class="csl-left-margin">3. </div><div class="csl-right-inline">Gibbons, J. D., Olkin, I. &amp; Sobel, M. <a href="https://www.jstor.org/stable/2683731">An <span>Introduction</span> to <span>Ranking</span> and <span>Selection</span></a>. <em>The American Statistician</em> <strong>33</strong>, 185–195 (1979).</div>
+</div>
+<div id="ref-chick2010" class="csl-entry">
+<div class="csl-left-margin">4. </div><div class="csl-right-inline">Chick, S. E., Branke, J. &amp; Schmidt, C. <a href="https://doi.org/10.1287/ijoc.1090.0327">Sequential <span>Sampling</span> to <span>Myopically</span> <span>Maximize</span> the <span>Expected</span> <span>Value</span> of <span>Information</span></a>. <em>INFORMS Journal on Computing</em> <strong>22</strong>, 71–80 (2010).</div>
+</div>
+<div id="ref-frazier2008" class="csl-entry">
+<div class="csl-left-margin">5. </div><div class="csl-right-inline">Frazier, P. I., Powell, W. B. &amp; Dayanik, S. <a href="https://doi.org/10.1137/070693424">A <span>Knowledge</span>-<span>Gradient</span> <span>Policy</span> for <span>Sequential</span> <span>Information</span> <span>Collection</span></a>. <em>SIAM Journal on Control and Optimization</em> <strong>47</strong>, 2410–2439 (2008).</div>
+</div>
+<div id="ref-itur-bs1534" class="csl-entry">
+<div class="csl-left-margin">6. </div><div class="csl-right-inline"><span class="nocase">Rec. ITU-R BS.1534-3: Method for the subjective assessment of intermediate quality level of audio systems</span>. <a href="https://www.itu.int/rec/R-REC-BS.1534">https://www.itu.int/rec/R-REC-BS.1534</a> (2015).</div>
+</div>
+<div id="ref-Schoeffler2018" class="csl-entry">
+<div class="csl-left-margin">7. </div><div class="csl-right-inline">Schoeffler, M. <em>et al.</em> <span class="nocase">webMUSHRA</span> — a comprehensive framework for web-based listening tests. <em>Journal of Open Research Software</em> <a href="https://doi.org/10.5334/jors.187">https://doi.org/10.5334/jors.187</a> (2018) doi:<a href="https://doi.org/10.5334/jors.187">10.5334/jors.187</a>.</div>
+</div>
+</div></section></div> ]]></description>
+  <category>bayesian</category>
+  <category>python</category>
+  <category>statistics</category>
+  <guid>https://petterihyvarinen.fi/blog/posts/bayesian-mushra/</guid>
+  <pubDate>Mon, 03 Nov 2025 22:00:00 GMT</pubDate>
+</item>
+</channel>
+</rss>
