@@ -25,7 +25,7 @@
 <p>Results from such tests always involve uncertainty; different listeners may give slightly different ratings to the same system, or even the same listener may give different responses in repeated trials of identical conditions. When interpreting the results and drawing conclusions from the data, this uncertainty is taken into account by statistical analysis. If you’ve ever done statistics on listening test data (or possibly other kinds of sensory evaluation data), you may be familiar with the feeling that the statistical models and methods are not working for you but you are instead working for them—and not getting much in return.</p>
 <p>I suggest that this difficulty with sensory evaluation data and statistics is because the classical statistical testing is geared towards answering different kinds of questions than the ones we’d like to ask about our listening experiment results. But luckily, things can be made easier by using a different statistical framework—ranking &amp; selection (R&amp;S)—where the questions are formulated in ways that fit sensory evaluation tasks perfectly.</p>
 <p>This article is a Jupyter notebook, rendered to HTML with Quarto. It contains the Python code for running the analysis and creating the figures and tables. The code cells are hidden by default, to keep the text readable—the code cells can be expanded by clicking on them. In addition to standard scientific Python packages, I’ll use <a href="https://mc-stan.org/">STAN</a> for the bayesian inference via its CmdStanPy python interface.</p>
-<div id="97f3ded4" class="cell" data-execution_count="2">
+<div id="97f3ded4" class="cell" data-execution_count="20">
 <details class="code-fold">
 <summary>Code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><span class="im" style="color: #00769E;
@@ -93,10 +93,6 @@ font-style: inherit;">"Set2"</span>)</span>
 background-color: null;
 font-style: inherit;">%</span>matplotlib inline</span></code></pre></div></div>
 </details>
-<div class="cell-output cell-output-stderr">
-<pre><code>c:\Users\pette\miniforge3\envs\python_stan\Lib\site-packages\tqdm\auto.py:21: TqdmWarning: IProgress not found. Please update jupyter and ipywidgets. See https://ipywidgets.readthedocs.io/en/stable/user_install.html
-  from .autonotebook import tqdm as notebook_tqdm</code></pre>
-</div>
 </div>
 <section id="listening-test-statistics" class="level1">
 <h1>Listening test statistics</h1>
@@ -110,6 +106,7 @@ font-style: inherit;">%</span>matplotlib inline</span></code></pre></div></div>
 <blockquote class="blockquote">
 <p>More generally, ranking and selection procedures are statistical techniques for comparing the parameters of some <img src="https://latex.codecogs.com/png.latex?k"> populations under the assumption that these parameters are not all the same.</p>
 </blockquote>
+<p>In contrast, with classical hypothesis testing, the statistical analysis is done under the assumption that the parameters <em>are</em> the same; this is what the null hypothesis means, and what makes the analysis and wording of conclusions a bit unintuitive.</p>
 <p>In other words, R&amp;S seems like a perfect match for our sensory evaluation data. We get rid of the artificial null hypotheses and their testing and rejection, and instead go directly at the questions we actually want answered.</p>
 <p>Another good match for R&amp;S is Bayesian inference, where we would model “the parameters of some <img src="https://latex.codecogs.com/png.latex?k"> populations” as distributions of random variables, and conduct our statistical analysis using those distributions. This approach is called Bayesian R&amp;S and it is used already in fields like operations research and machine learning. Bringing in the bayesian framework gives us a lot more tools to work with. After formulating our listening test as a bayesian statistical model, we can do bayesian experimental design (BED) to optimise the listening test, for example by using a sequential design, where we pick the next test item based on the information value we would expect to gain by testing each particular item<span class="citation" data-cites="chick2010 frazier2008"><sup>4,5</sup></span>.</p>
 <p>Next, I’ll show how Bayesian R&amp;S could be employed in the statistical analysis of results of the widely-used MUSHRA listening test format.</p>
@@ -119,7 +116,7 @@ font-style: inherit;">%</span>matplotlib inline</span></code></pre></div></div>
 <h1>The MUSHRA test</h1>
 <p>The ITU-R BS.1534-3<span class="citation" data-cites="itur-bs1534"><sup>6</sup></span> recommendation defines the “<strong>Mu</strong>lti <strong>S</strong>timulus test with <strong>H</strong>idden <strong>R</strong>eference and <strong>A</strong>nchor (<strong>MUSHRA</strong>)” method, which is intended for listening tests of intermediate-quality systems. In the test, assessors listen to sound clips which are processed through each system, allowing direct comparison of the systems in terms of sound coloration, stereo image, or some other relevant attribute. For each sound clip, a high-quality reference (e.g., a lossless audio sample), a low-quality anchor (think: low-passed, “lo-fi” sound sample), and the actual audio systems under comparison are evaluated, and listeners rate them on a 0–100 scale, where 100 corresponds to the quality of the reference system and 0 corresponds to the quality of the low-quality anchor.</p>
 <p>Since MUSHRA is intended for <em>intermediate-quality</em> systems, it means that the differences between systems should be quite obvious. It is not a test design meant to tease out the smallest, almost imperceptible differences between reference-grade hifi systems. Instead, the point is to have a straight-forward and relatively fast way for rating multiple test items. For statistical demonstration purposes, this is great, since for a MUSHRA test it is really clear to both the experimenter and the assessor that there are differences between systems.</p>
-<p>A popular choice for running a MUSHRA test is by using the browser-based webMUSHRA framework<span class="citation" data-cites="Schoeffler2018"><sup>7</sup></span>. Figure&nbsp;1 shows the experiment user interface, where ratings for each test item are given with sliders. The assessor can switch immediately between different test items, and it’s possible to loop a specific section of the sound clip. The systems are blinded, meaning that it is not known which test item corresponds to which system, and their ordering in the user interface is random. There is a labeled reference system, which the other systems are compared to, but also one of the blinded test items is the hidden reference—and this test item should be rated at 100.</p>
+<p>To give a better idea of how the listening test is in practice done, a popular choice for running a MUSHRA test is by using the browser-based webMUSHRA framework<span class="citation" data-cites="Schoeffler2018"><sup>7</sup></span>. Figure&nbsp;1 shows the experiment user interface, where ratings for each test item are given with sliders. The assessor can switch immediately between different test items, and it’s possible to loop a specific section of the sound clip. The systems are blinded, meaning that it is not known which test item corresponds to which system, and their ordering in the user interface is random. There is a labeled reference system, which the other systems are compared to, but also one of the blinded test items is the hidden reference—and this test item should be rated at 100.</p>
 <div id="fig-mushra-ui" class="quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-mushra-ui-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
@@ -132,12 +129,12 @@ Figure&nbsp;1: webMUSHRA user interface
 </div>
 <section id="example-data" class="level2">
 <h2 class="anchored" data-anchor-id="example-data">Example data</h2>
-<p>We have the results of a MUSHRA listening test that investigated spatial audio quality, in which <img src="https://latex.codecogs.com/png.latex?N%20=%2015"> listeners <img src="https://latex.codecogs.com/png.latex?k%20=%201%20%5Cldots%20N"> evaluated <img src="https://latex.codecogs.com/png.latex?M%20=%206"> systems <img src="https://latex.codecogs.com/png.latex?j%20=%201%20%5Cldots%206"> (of which system 1 is the reference and system 6 the anchor) and gave them ratings <img src="https://latex.codecogs.com/png.latex?r_%7Bkj%7D%20%5Cin%20%5B0,%20%20100%5D">. The responses are shown in Figure&nbsp;2.</p>
+<p>We have the results of a MUSHRA listening test that investigated spatial audio quality, in which 15 listeners <img src="https://latex.codecogs.com/png.latex?k%20=%201%20%5Cldots%2015"> evaluated six systems <img src="https://latex.codecogs.com/png.latex?j%20=%201%20%5Cldots%206"> (of which system 1 is the reference and system 6 the anchor) and gave them ratings <img src="https://latex.codecogs.com/png.latex?r_%7Bkj%7D%20%5Cin%20%5B0,%20%20100%5D">. The responses are shown in Figure&nbsp;2.</p>
 <p>Here we will only consider ratings for a single sound clip, to keep the statistical model simple enough. For actual listening experiment data, where we have multiple conditions and possibly repetitions of items, we would add more parameters to the model, accounting for different experimental conditions and also listener-specific effects.</p>
-<div id="cell-fig-rawdata" class="cell" data-execution_count="3">
+<div id="cell-fig-rawdata" class="cell" data-execution_count="21">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1">ratings <span class="op" style="color: #5E5E5E;
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1">ratings <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> np.loadtxt(<span class="st" style="color: #20794D;
 background-color: null;
@@ -146,7 +143,7 @@ background-color: null;
 font-style: inherit;">=</span><span class="st" style="color: #20794D;
 background-color: null;
 font-style: inherit;">";"</span>)</span>
-<span id="cb3-2">participants <span class="op" style="color: #5E5E5E;
+<span id="cb2-2">participants <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> np.arange(ratings.shape[<span class="dv" style="color: #AD0000;
 background-color: null;
@@ -159,12 +156,12 @@ background-color: null;
 font-style: inherit;">+</span> <span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span></span>
-<span id="cb3-3">participants <span class="op" style="color: #5E5E5E;
+<span id="cb2-3">participants <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> np.repeat(participants, <span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">6</span>).flatten()</span>
-<span id="cb3-4">system_ids <span class="op" style="color: #5E5E5E;
+<span id="cb2-4">system_ids <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> np.arange(ratings.shape[<span class="dv" style="color: #AD0000;
 background-color: null;
@@ -177,20 +174,20 @@ background-color: null;
 font-style: inherit;">+</span> <span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span></span>
-<span id="cb3-5">systems <span class="op" style="color: #5E5E5E;
+<span id="cb2-5">systems <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> np.tile(system_ids, (<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">15</span>,<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>))</span>
-<span id="cb3-6">ratings <span class="op" style="color: #5E5E5E;
+<span id="cb2-6">ratings <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> ratings.flatten()</span>
-<span id="cb3-7">systems <span class="op" style="color: #5E5E5E;
+<span id="cb2-7">systems <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> systems.flatten()</span>
-<span id="cb3-8">df <span class="op" style="color: #5E5E5E;
+<span id="cb2-8">df <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> pd.DataFrame({<span class="st" style="color: #20794D;
 background-color: null;
@@ -199,8 +196,8 @@ background-color: null;
 font-style: inherit;">"systems"</span>: systems, <span class="st" style="color: #20794D;
 background-color: null;
 font-style: inherit;">"listeners"</span>: participants})</span>
-<span id="cb3-9"></span>
-<span id="cb3-10">fig, ax <span class="op" style="color: #5E5E5E;
+<span id="cb2-9"></span>
+<span id="cb2-10">_, ax <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> plt.subplots(<span class="dv" style="color: #AD0000;
 background-color: null;
@@ -213,27 +210,7 @@ background-color: null;
 font-style: inherit;">4</span>,<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">3</span>))</span>
-<span id="cb3-11">fig.set_layout_engine(<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">'tight'</span>)</span>
-<span id="cb3-12">fig.subplots_adjust(left<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span><span class="fl" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">1.5</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span><span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">7</span>, right<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span><span class="fl" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">5.5</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span><span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">7</span>)</span>
-<span id="cb3-13">sns.stripplot(df, x<span class="op" style="color: #5E5E5E;
+<span id="cb2-11">sns.stripplot(df, x<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span><span class="st" style="color: #20794D;
 background-color: null;
@@ -248,7 +225,7 @@ background-color: null;
 font-style: inherit;">"systems"</span>, ax<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span>ax, </span>
-<span id="cb3-14">              palette<span class="op" style="color: #5E5E5E;
+<span id="cb2-12">              palette<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span><span class="st" style="color: #20794D;
 background-color: null;
@@ -261,13 +238,13 @@ background-color: null;
 font-style: inherit;">=</span><span class="fl" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1.0</span>)</span>
-<span id="cb3-15">ax.set_xlabel(<span class="st" style="color: #20794D;
+<span id="cb2-13">ax.set_xlabel(<span class="st" style="color: #20794D;
 background-color: null;
 font-style: inherit;">"System"</span>)</span>
-<span id="cb3-16">ax.set_ylabel(<span class="st" style="color: #20794D;
+<span id="cb2-14">ax.set_ylabel(<span class="st" style="color: #20794D;
 background-color: null;
 font-style: inherit;">"Rating"</span>)</span>
-<span id="cb3-17">ax.set_title(<span class="vs" style="color: #20794D;
+<span id="cb2-15">ax.set_title(<span class="vs" style="color: #20794D;
 background-color: null;
 font-style: inherit;">r"Ratings </span><span class="dv" style="color: #AD0000;
 background-color: null;
@@ -311,19 +288,19 @@ Figure&nbsp;2: Responses from 15 participants in a MUSHRA test with four systems
 <div id="a6346e6f" class="cell" data-execution_count="4">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1">N <span class="op" style="color: #5E5E5E;
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1">N <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">10000</span></span>
-<span id="cb4-2">np.random.seed(<span class="dv" style="color: #AD0000;
+<span id="cb3-2">np.random.seed(<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">123</span>)</span>
-<span id="cb4-3"></span>
-<span id="cb4-4"><span class="co" style="color: #5E5E5E;
+<span id="cb3-3"></span>
+<span id="cb3-4"><span class="co" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;"># draw N samples from the prior distributions</span></span>
-<span id="cb4-5">mu0 <span class="op" style="color: #5E5E5E;
+<span id="cb3-5">mu0 <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> stats.norm.rvs(<span class="dv" style="color: #AD0000;
 background-color: null;
@@ -332,30 +309,30 @@ background-color: null;
 font-style: inherit;">1</span>, size<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span>N)</span>
-<span id="cb4-6"><span class="co" style="color: #5E5E5E;
+<span id="cb3-6"><span class="co" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;"># the alpha_j prior depends on the hyperprior sigma_alpha, so draw them first ...</span></span>
-<span id="cb4-7">sigma_alpha <span class="op" style="color: #5E5E5E;
+<span id="cb3-7">sigma_alpha <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> stats.invgamma.rvs(<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">3</span>, size<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span>N)</span>
-<span id="cb4-8"><span class="co" style="color: #5E5E5E;
+<span id="cb3-8"><span class="co" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;"># ... and use the sigma_alpha values to draw alpha_j</span></span>
-<span id="cb4-9">alpha_j <span class="op" style="color: #5E5E5E;
+<span id="cb3-9">alpha_j <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> stats.norm.rvs(<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">0</span>, sigma_alpha, size<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span>N)</span>
-<span id="cb4-10"><span class="co" style="color: #5E5E5E;
+<span id="cb3-10"><span class="co" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;"># note the difference between scipy and stan parameters. Here scale=10, and in stan the 2nd parameter is 0.1 = 1/scale</span></span>
-<span id="cb4-11">phi_j <span class="op" style="color: #5E5E5E;
+<span id="cb3-11">phi_j <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> stats.gamma.rvs(<span class="dv" style="color: #AD0000;
 background-color: null;
@@ -366,19 +343,19 @@ background-color: null;
 font-style: inherit;">10</span>, size<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span>N)</span>
-<span id="cb4-12"></span>
-<span id="cb4-13"><span class="co" style="color: #5E5E5E;
+<span id="cb3-12"></span>
+<span id="cb3-13"><span class="co" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;"># we have logit(mu_j) = mu0 + alpha_j, so take the inverse logit (in scipy, expit) to get mu_j</span></span>
-<span id="cb4-14">mu_j <span class="op" style="color: #5E5E5E;
+<span id="cb3-14">mu_j <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> expit(mu0 <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">+</span> alpha_j)</span>
-<span id="cb4-15"><span class="co" style="color: #5E5E5E;
+<span id="cb3-15"><span class="co" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;"># draw values for y based on the priors</span></span>
-<span id="cb4-16">y_kj <span class="op" style="color: #5E5E5E;
+<span id="cb3-16">y_kj <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> stats.beta.rvs(mu_j <span class="op" style="color: #5E5E5E;
 background-color: null;
@@ -397,7 +374,7 @@ font-style: inherit;">=</span>N)</span></code></pre></div></div>
 <div id="cell-fig-betadist" class="cell" data-execution_count="15">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1">sns.set_theme(context<span class="op" style="color: #5E5E5E;
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1">sns.set_theme(context<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span><span class="st" style="color: #20794D;
 background-color: null;
@@ -416,7 +393,7 @@ background-color: null;
 font-style: inherit;">"axes.edgecolor"</span>: <span class="st" style="color: #20794D;
 background-color: null;
 font-style: inherit;">"0.8"</span>})</span>
-<span id="cb5-2">_, axs <span class="op" style="color: #5E5E5E;
+<span id="cb4-2">_, axs <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> plt.subplots(<span class="dv" style="color: #AD0000;
 background-color: null;
@@ -439,8 +416,8 @@ background-color: null;
 font-style: inherit;">"hspace"</span>: <span class="fl" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">0.2</span>})</span>
-<span id="cb5-3"></span>
-<span id="cb5-4"><span class="cf" style="color: #003B4F;
+<span id="cb4-3"></span>
+<span id="cb4-4"><span class="cf" style="color: #003B4F;
 background-color: null;
 font-weight: bold;
 font-style: inherit;">for</span> axi, ax <span class="kw" style="color: #003B4F;
@@ -449,7 +426,7 @@ font-weight: bold;
 font-style: inherit;">in</span> <span class="bu" style="color: null;
 background-color: null;
 font-style: inherit;">enumerate</span>(axs.flatten()):</span>
-<span id="cb5-5">    y_fix <span class="op" style="color: #5E5E5E;
+<span id="cb4-5">    y_fix <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> stats.beta.rvs(mu_j[axi] <span class="op" style="color: #5E5E5E;
 background-color: null;
@@ -462,7 +439,7 @@ background-color: null;
 font-style: inherit;">*</span>phi_j[axi], size<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span>N)</span>
-<span id="cb5-6">    ax.hist(y_fix, bins<span class="op" style="color: #5E5E5E;
+<span id="cb4-6">    ax.hist(y_fix, bins<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span><span class="dv" style="color: #AD0000;
 background-color: null;
@@ -475,30 +452,30 @@ background-color: null;
 font-style: inherit;">=</span><span class="st" style="color: #20794D;
 background-color: null;
 font-style: inherit;">"stepfilled"</span>)</span>
-<span id="cb5-7">    ax.set_xlim((<span class="op" style="color: #5E5E5E;
+<span id="cb4-7">    ax.set_xlim((<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">-</span><span class="fl" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">0.01</span>,<span class="fl" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1.01</span>))</span>
-<span id="cb5-8">    ax.set_xticks([<span class="dv" style="color: #AD0000;
+<span id="cb4-8">    ax.set_xticks([<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">0</span>,<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>])</span>
-<span id="cb5-9">    ax.tick_params(labelsize<span class="op" style="color: #5E5E5E;
+<span id="cb4-9">    ax.tick_params(labelsize<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span><span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">8</span>)</span>
-<span id="cb5-10">    ax.xaxis.set_visible(<span class="va" style="color: #111111;
+<span id="cb4-10">    ax.xaxis.set_visible(<span class="va" style="color: #111111;
 background-color: null;
 font-style: inherit;">True</span>)</span>
-<span id="cb5-11">    ax.yaxis.set_visible(<span class="va" style="color: #111111;
+<span id="cb4-11">    ax.yaxis.set_visible(<span class="va" style="color: #111111;
 background-color: null;
 font-style: inherit;">False</span>)</span>
-<span id="cb5-12">    ax.set_title(<span class="vs" style="color: #20794D;
+<span id="cb4-12">    ax.set_title(<span class="vs" style="color: #20794D;
 background-color: null;
 font-style: inherit;">rf"</span><span class="dv" style="color: #AD0000;
 background-color: null;
@@ -523,7 +500,7 @@ background-color: null;
 font-style: inherit;">$</span><span class="vs" style="color: #20794D;
 background-color: null;
 font-style: inherit;">"</span>, </span>
-<span id="cb5-13">                 fontdict<span class="op" style="color: #5E5E5E;
+<span id="cb4-13">                 fontdict<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span>{<span class="st" style="color: #20794D;
 background-color: null;
@@ -544,18 +521,18 @@ Figure&nbsp;3: Beta distributions with shape parameters <img src="https://latex.
 </div>
 </div>
 </div>
-<p>We see that the mean values <img src="https://latex.codecogs.com/png.latex?%5Cmu_j"> go from 0.12 to 0.88 and the precisions <img src="https://latex.codecogs.com/png.latex?%5Cphi_j"> from 2.45 (very broad distribution in upper right corner) to 50.2 (narrow distribution in lower right corner). The distributions seem plausible in that there are no cases where the responses would for example be concentrated on some single value, and there is also good variability in the shapes of the distributions such that many different kinds of response profiles are plausible with the priors. Scale effects also appear to be taken into account, since as the mean gets closer to either extreme, the values start to “pack” at the boundaries, as we would also expect to happen for the actual ratings.</p>
+<p>We see that the mean values <img src="https://latex.codecogs.com/png.latex?%5Cmu_j"> go from 0.12 to 0.88 and the precisions <img src="https://latex.codecogs.com/png.latex?%5Cphi_j"> from 2.45 (very broad distribution in upper right corner) to 50.2 (narrow distribution in lower right corner). The distributions seem plausible in that there are no cases where the responses would for example be concentrated on some single value, and there is also good variability in the shapes of the distributions such that many different kinds of response profiles are plausible with the priors. Scale effects also appear to be taken into account, since as the mean gets closer to either extreme, the values start to pack at the boundaries, as we would also expect to happen for the actual ratings.</p>
 <p>Looking at the prior distribution for <img src="https://latex.codecogs.com/png.latex?%5Cmu_j">, we see that the means are more concentrated towards the center of the scale. This could be interpreted as a conservative prior; it is less likely to have systems with means at the very extremes. If instead of looking at the distributions of <img src="https://latex.codecogs.com/png.latex?y_%7Bkj%7D"> obtained with fixed parameters as in Figure&nbsp;3, we look at how the <img src="https://latex.codecogs.com/png.latex?y_%7Bkj%7D"> are distributed across all possible prior draws, we see that the simulated ratings are quite evenly distributed across the full scale with a bit more values in the middle, and also clear peaks at the extreme ends of the scale.</p>
 <p>As very general prior assumptions, these distributions look ok—people are usually more likely to give intermediate ratings that extreme values—but depending on the specific situation, it could make sense to fine-tune the priors. In a MUSHRA test, the midpoint of the scale does not actually correspond to some neutral value. Instead, the labels on the scale are “excellent”, “good”, “fair”, “poor”, and “bad”, and thus the midpoint would fall within the range labelled as “fair”. There can be language factors or cultural factors which might have slight effects regarding where a “neutral” answer would go on this scale; does “good” mean “ok”, and how much worse is “bad” than “poor”? So, depending on the context, one might adjust the priors for example so that higher ratings would be more likely. This would not have a dramatic effect on the results, however, since as actual observations are fitted to the model, strong evidence will always outweigh these weakly informative priors.</p>
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1">sns.set_style(<span class="st" style="color: #20794D;
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1">sns.set_style(<span class="st" style="color: #20794D;
 background-color: null;
 font-style: inherit;">"ticks"</span>)</span>
-<span id="cb6-2">sns.set_palette(<span class="st" style="color: #20794D;
+<span id="cb5-2">sns.set_palette(<span class="st" style="color: #20794D;
 background-color: null;
 font-style: inherit;">"Set2"</span>)</span>
-<span id="cb6-3">fig1, ax <span class="op" style="color: #5E5E5E;
+<span id="cb5-3">fig1, ax <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> plt.subplots(<span class="dv" style="color: #AD0000;
 background-color: null;
@@ -568,7 +545,7 @@ background-color: null;
 font-style: inherit;">3</span>,<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">2</span>))</span>
-<span id="cb6-4">ax.hist(mu_j, bins<span class="op" style="color: #5E5E5E;
+<span id="cb5-4">ax.hist(mu_j, bins<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span><span class="dv" style="color: #AD0000;
 background-color: null;
@@ -577,7 +554,7 @@ background-color: null;
 font-style: inherit;">=</span><span class="va" style="color: #111111;
 background-color: null;
 font-style: inherit;">True</span>)</span>
-<span id="cb6-5">ax.set_title(<span class="vs" style="color: #20794D;
+<span id="cb5-5">ax.set_title(<span class="vs" style="color: #20794D;
 background-color: null;
 font-style: inherit;">r"Prior predictive distribution for </span><span class="dv" style="color: #AD0000;
 background-color: null;
@@ -588,9 +565,9 @@ background-color: null;
 font-style: inherit;">$</span><span class="vs" style="color: #20794D;
 background-color: null;
 font-style: inherit;">"</span>)</span>
-<span id="cb6-6">sns.despine()</span>
-<span id="cb6-7"></span>
-<span id="cb6-8">fig2, ax <span class="op" style="color: #5E5E5E;
+<span id="cb5-6">sns.despine()</span>
+<span id="cb5-7"></span>
+<span id="cb5-8">fig2, ax <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> plt.subplots(<span class="dv" style="color: #AD0000;
 background-color: null;
@@ -603,7 +580,7 @@ background-color: null;
 font-style: inherit;">3</span>,<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">2</span>))</span>
-<span id="cb6-9">ax.hist(y_kj, bins<span class="op" style="color: #5E5E5E;
+<span id="cb5-9">ax.hist(y_kj, bins<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span><span class="dv" style="color: #AD0000;
 background-color: null;
@@ -612,7 +589,7 @@ background-color: null;
 font-style: inherit;">=</span><span class="va" style="color: #111111;
 background-color: null;
 font-style: inherit;">True</span>)</span>
-<span id="cb6-10">ax.set_title(<span class="vs" style="color: #20794D;
+<span id="cb5-10">ax.set_title(<span class="vs" style="color: #20794D;
 background-color: null;
 font-style: inherit;">r"Prior predictive distribution for </span><span class="dv" style="color: #AD0000;
 background-color: null;
@@ -623,7 +600,7 @@ background-color: null;
 font-style: inherit;">$</span><span class="vs" style="color: #20794D;
 background-color: null;
 font-style: inherit;">"</span>)</span>
-<span id="cb6-11">sns.despine()</span></code></pre></div></div>
+<span id="cb5-11">sns.despine()</span></code></pre></div></div>
 </details>
 <div id="fig-mu-pred" class="quarto-layout-panel">
 <figure class="quarto-float quarto-float-fig figure">
@@ -664,15 +641,15 @@ Figure&nbsp;4: Prior predictive distributions
 <section id="stan-implementation" class="level2">
 <h2 class="anchored" data-anchor-id="stan-implementation">STAN implementation</h2>
 <p>The model in Equation&nbsp;1 was implemented using STAN. The model specification is given below. STAN uses the MCMC method (<em>Markov Chain Monte Carlo</em>) to numerically solve the posterior distribution — by simulating a sufficient number of samples from the posterior distribution implied by the model, the distribution can be approximated to the desired accuracy.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7" style="background: #f1f3f5;"><pre class="sourceCode stan code-with-copy"><code class="sourceCode stan"><span id="cb7-1"><span class="co" style="color: #5E5E5E;
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6" style="background: #f1f3f5;"><pre class="sourceCode stan code-with-copy"><code class="sourceCode stan"><span id="cb6-1"><span class="co" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">// Hierarchical Beta regression for MUSHRA scores</span></span>
-<span id="cb7-2"></span>
-<span id="cb7-3"><span class="kw" style="color: #003B4F;
+<span id="cb6-2"></span>
+<span id="cb6-3"><span class="kw" style="color: #003B4F;
 background-color: null;
 font-weight: bold;
 font-style: inherit;">data</span> {</span>
-<span id="cb7-4">  <span class="dt" style="color: #AD0000;
+<span id="cb6-4">  <span class="dt" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
@@ -682,7 +659,7 @@ background-color: null;
 font-style: inherit;">1</span>&gt; N;                   <span class="co" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">// total observations</span></span>
-<span id="cb7-5">  <span class="dt" style="color: #AD0000;
+<span id="cb6-5">  <span class="dt" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
@@ -692,7 +669,7 @@ background-color: null;
 font-style: inherit;">1</span>&gt; S;                   <span class="co" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">// number of systems</span></span>
-<span id="cb7-6">  <span class="dt" style="color: #AD0000;
+<span id="cb6-6">  <span class="dt" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">array</span>[N] <span class="dt" style="color: #AD0000;
 background-color: null;
@@ -704,8 +681,8 @@ background-color: null;
 font-style: inherit;">1</span>&gt; system_id;  <span class="co" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">// system id of each observation</span></span>
-<span id="cb7-7"></span>
-<span id="cb7-8">  <span class="dt" style="color: #AD0000;
+<span id="cb6-7"></span>
+<span id="cb6-8">  <span class="dt" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">array</span>[N] <span class="dt" style="color: #AD0000;
 background-color: null;
@@ -722,25 +699,25 @@ background-color: null;
 font-style: inherit;">1</span>&gt; y; <span class="co" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">// rescaled scores in (0,1)</span></span>
-<span id="cb7-9">}</span>
-<span id="cb7-10"></span>
-<span id="cb7-11"><span class="kw" style="color: #003B4F;
+<span id="cb6-9">}</span>
+<span id="cb6-10"></span>
+<span id="cb6-11"><span class="kw" style="color: #003B4F;
 background-color: null;
 font-weight: bold;
 font-style: inherit;">parameters</span> {</span>
-<span id="cb7-12">  <span class="dt" style="color: #AD0000;
+<span id="cb6-12">  <span class="dt" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">real</span> mu_0;                           <span class="co" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">// global intercept on logit scale</span></span>
-<span id="cb7-13">  <span class="dt" style="color: #AD0000;
+<span id="cb6-13">  <span class="dt" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">array</span>[S] <span class="dt" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">real</span> alpha_j;               <span class="co" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">// system offsets (logit scale)</span></span>
-<span id="cb7-14">  <span class="dt" style="color: #AD0000;
+<span id="cb6-14">  <span class="dt" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">real</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
@@ -750,7 +727,7 @@ background-color: null;
 font-style: inherit;">0</span>&gt; sigma_alpha;           <span class="co" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">// sd for system effects</span></span>
-<span id="cb7-15">  <span class="dt" style="color: #AD0000;
+<span id="cb6-15">  <span class="dt" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">array</span>[S] <span class="dt" style="color: #AD0000;
 background-color: null;
@@ -762,19 +739,19 @@ background-color: null;
 font-style: inherit;">0</span>&gt; phi_j;        <span class="co" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">// Beta precision</span></span>
-<span id="cb7-16">}</span>
-<span id="cb7-17"></span>
-<span id="cb7-18"><span class="kw" style="color: #003B4F;
+<span id="cb6-16">}</span>
+<span id="cb6-17"></span>
+<span id="cb6-18"><span class="kw" style="color: #003B4F;
 background-color: null;
 font-weight: bold;
 font-style: inherit;">transformed parameters</span> {</span>
-<span id="cb7-19">  <span class="co" style="color: #5E5E5E;
+<span id="cb6-19">  <span class="co" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">// linear predictor on logit scale for each observation</span></span>
-<span id="cb7-20">  <span class="dt" style="color: #AD0000;
+<span id="cb6-20">  <span class="dt" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">vector</span>[N] eta;</span>
-<span id="cb7-21">  <span class="cf" style="color: #003B4F;
+<span id="cb6-21">  <span class="cf" style="color: #003B4F;
 background-color: null;
 font-weight: bold;
 font-style: inherit;">for</span> (n <span class="cf" style="color: #003B4F;
@@ -783,40 +760,40 @@ font-weight: bold;
 font-style: inherit;">in</span> <span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>:N) {</span>
-<span id="cb7-22">    eta[n] = mu_0 + alpha_j[system_id[n]];</span>
-<span id="cb7-23">  }</span>
-<span id="cb7-24">}</span>
-<span id="cb7-25"></span>
-<span id="cb7-26"><span class="kw" style="color: #003B4F;
+<span id="cb6-22">    eta[n] = mu_0 + alpha_j[system_id[n]];</span>
+<span id="cb6-23">  }</span>
+<span id="cb6-24">}</span>
+<span id="cb6-25"></span>
+<span id="cb6-26"><span class="kw" style="color: #003B4F;
 background-color: null;
 font-weight: bold;
 font-style: inherit;">model</span> {</span>
-<span id="cb7-27">  <span class="co" style="color: #5E5E5E;
+<span id="cb6-27">  <span class="co" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">// Priors</span></span>
-<span id="cb7-28">  mu_0 ~ normal(<span class="dv" style="color: #AD0000;
+<span id="cb6-28">  mu_0 ~ normal(<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">0</span>, <span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>);</span>
-<span id="cb7-29">  alpha_j ~ normal(<span class="dv" style="color: #AD0000;
+<span id="cb6-29">  alpha_j ~ normal(<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">0</span>, sigma_alpha);</span>
-<span id="cb7-30">  sigma_alpha ~ inv_gamma(<span class="dv" style="color: #AD0000;
+<span id="cb6-30">  sigma_alpha ~ inv_gamma(<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">3</span>, <span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>);</span>
-<span id="cb7-31">  phi_j ~ gamma(<span class="dv" style="color: #AD0000;
+<span id="cb6-31">  phi_j ~ gamma(<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">2</span>, <span class="fl" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">0.1</span>);</span>
-<span id="cb7-32"></span>
-<span id="cb7-33">  <span class="co" style="color: #5E5E5E;
+<span id="cb6-32"></span>
+<span id="cb6-33">  <span class="co" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">// Likelihood: parameterize Beta by mean mu (inv_logit(eta)) and precision phi</span></span>
-<span id="cb7-34">  <span class="cf" style="color: #003B4F;
+<span id="cb6-34">  <span class="cf" style="color: #003B4F;
 background-color: null;
 font-weight: bold;
 font-style: inherit;">for</span> (n <span class="cf" style="color: #003B4F;
@@ -825,14 +802,14 @@ font-weight: bold;
 font-style: inherit;">in</span> <span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>:N) {</span>
-<span id="cb7-35">    <span class="dt" style="color: #AD0000;
+<span id="cb6-35">    <span class="dt" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">real</span> mu_j = inv_logit(eta[n]);</span>
-<span id="cb7-36">    y[n] ~ beta(mu_j * phi_j[system_id[n]], (<span class="dv" style="color: #AD0000;
+<span id="cb6-36">    y[n] ~ beta(mu_j * phi_j[system_id[n]], (<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span> - mu_j) * phi_j[system_id[n]]);</span>
-<span id="cb7-37">  }</span>
-<span id="cb7-38">}</span></code></pre></div></div>
+<span id="cb6-37">  }</span>
+<span id="cb6-38">}</span></code></pre></div></div>
 </section>
 <section id="model-fitting" class="level2">
 <h2 class="anchored" data-anchor-id="model-fitting">Model fitting</h2>
@@ -840,23 +817,23 @@ font-style: inherit;">1</span> - mu_j) * phi_j[system_id[n]]);</span>
 <div id="903de4ce" class="cell" data-execution_count="7">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1">model <span class="op" style="color: #5E5E5E;
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1">model <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> csp.CmdStanModel(stan_file<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span><span class="st" style="color: #20794D;
 background-color: null;
 font-style: inherit;">"mushra_simple.stan"</span>)</span>
-<span id="cb8-2"></span>
-<span id="cb8-3"><span class="co" style="color: #5E5E5E;
+<span id="cb7-2"></span>
+<span id="cb7-3"><span class="co" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;"># rescale raw scores [0,100] to [0,1] for beta regression</span></span>
-<span id="cb8-4">eps <span class="op" style="color: #5E5E5E;
+<span id="cb7-4">eps <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> <span class="fl" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">0.5</span></span>
-<span id="cb8-5">y <span class="op" style="color: #5E5E5E;
+<span id="cb7-5">y <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> (df[<span class="st" style="color: #20794D;
 background-color: null;
@@ -873,8 +850,8 @@ background-color: null;
 font-style: inherit;">2</span><span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">*</span>eps)</span>
-<span id="cb8-6"></span>
-<span id="cb8-7">data <span class="op" style="color: #5E5E5E;
+<span id="cb7-6"></span>
+<span id="cb7-7">data <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> {<span class="st" style="color: #20794D;
 background-color: null;
@@ -887,14 +864,14 @@ background-color: null;
 font-style: inherit;">"systems"</span>].unique().shape[<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">0</span>], </span>
-<span id="cb8-8">        <span class="st" style="color: #20794D;
+<span id="cb7-8">        <span class="st" style="color: #20794D;
 background-color: null;
 font-style: inherit;">"system_id"</span>: df[<span class="st" style="color: #20794D;
 background-color: null;
 font-style: inherit;">"systems"</span>], <span class="st" style="color: #20794D;
 background-color: null;
 font-style: inherit;">"y"</span>: y}</span>
-<span id="cb8-9">sample <span class="op" style="color: #5E5E5E;
+<span id="cb7-9">sample <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> model.sample(data <span class="op" style="color: #5E5E5E;
 background-color: null;
@@ -903,7 +880,7 @@ background-color: null;
 font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">121</span>,</span>
-<span id="cb8-10">                      iter_warmup <span class="op" style="color: #5E5E5E;
+<span id="cb7-10">                      iter_warmup <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
 background-color: null;
@@ -912,7 +889,7 @@ background-color: null;
 font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">5000</span>,</span>
-<span id="cb8-11">                      show_progress <span class="op" style="color: #5E5E5E;
+<span id="cb7-11">                      show_progress <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> <span class="va" style="color: #111111;
 background-color: null;
@@ -935,14 +912,14 @@ font-style: inherit;">False</span>)</span></code></pre></div></div>
 <div id="74fe783c" class="cell" data-execution_count="8">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1">df_summary <span class="op" style="color: #5E5E5E;
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1">df_summary <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> sample.summary(sig_figs<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span><span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">2</span>)</span>
-<span id="cb9-2">df_summary.iloc[:<span class="dv" style="color: #AD0000;
+<span id="cb8-2">df_summary.iloc[:<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">15</span>,:]</span></code></pre></div></div>
 </details>
@@ -1188,10 +1165,10 @@ font-style: inherit;">15</span>,:]</span></code></pre></div></div>
 <div id="cell-fig-arviz" class="cell" data-execution_count="9">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1">az.style.use(<span class="st" style="color: #20794D;
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1">az.style.use(<span class="st" style="color: #20794D;
 background-color: null;
 font-style: inherit;">"arviz-doc"</span>)</span>
-<span id="cb10-2">az.plot_trace(sample, figsize<span class="op" style="color: #5E5E5E;
+<span id="cb9-2">az.plot_trace(sample, figsize<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span>(<span class="dv" style="color: #AD0000;
 background-color: null;
@@ -1204,24 +1181,24 @@ background-color: null;
 font-style: inherit;">"dpi"</span>: <span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">144</span>})</span>
-<span id="cb10-3"></span>
-<span id="cb10-4">phi_draws <span class="op" style="color: #5E5E5E;
+<span id="cb9-3"></span>
+<span id="cb9-4">phi_draws <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> sample.stan_variable(<span class="st" style="color: #20794D;
 background-color: null;
 font-style: inherit;">"phi_j"</span>)</span>
-<span id="cb10-5"></span>
-<span id="cb10-6">mu0_draws <span class="op" style="color: #5E5E5E;
+<span id="cb9-5"></span>
+<span id="cb9-6">mu0_draws <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> sample.stan_variable(<span class="st" style="color: #20794D;
 background-color: null;
 font-style: inherit;">"mu_0"</span>)</span>
-<span id="cb10-7">alpha_draws <span class="op" style="color: #5E5E5E;
+<span id="cb9-7">alpha_draws <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> sample.stan_variable(<span class="st" style="color: #20794D;
 background-color: null;
 font-style: inherit;">"alpha_j"</span>)</span>
-<span id="cb10-8">mu_draws <span class="op" style="color: #5E5E5E;
+<span id="cb9-8">mu_draws <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> expit(mu0_draws[:, np.newaxis] <span class="op" style="color: #5E5E5E;
 background-color: null;
@@ -1254,14 +1231,14 @@ Figure&nbsp;5: MCMC traces for model parameters
 <div id="cell-fig-posteriorpredictive" class="cell" data-execution_count="10">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1">plt.rcParams[<span class="st" style="color: #20794D;
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1">plt.rcParams[<span class="st" style="color: #20794D;
 background-color: null;
 font-style: inherit;">"figure.dpi"</span>] <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">144</span></span>
-<span id="cb11-2">sns.set_theme(context<span class="op" style="color: #5E5E5E;
+<span id="cb10-2">sns.set_theme(context<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span><span class="st" style="color: #20794D;
 background-color: null;
@@ -1274,7 +1251,7 @@ background-color: null;
 font-style: inherit;">=</span><span class="st" style="color: #20794D;
 background-color: null;
 font-style: inherit;">"Dark2"</span>)</span>
-<span id="cb11-3">fig, axs <span class="op" style="color: #5E5E5E;
+<span id="cb10-3">fig, axs <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> plt.subplots(<span class="dv" style="color: #AD0000;
 background-color: null;
@@ -1297,8 +1274,8 @@ background-color: null;
 font-style: inherit;">"hspace"</span>: <span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">0</span>})</span>
-<span id="cb11-4"></span>
-<span id="cb11-5"><span class="cf" style="color: #003B4F;
+<span id="cb10-4"></span>
+<span id="cb10-5"><span class="cf" style="color: #003B4F;
 background-color: null;
 font-weight: bold;
 font-style: inherit;">for</span> i <span class="kw" style="color: #003B4F;
@@ -1309,19 +1286,19 @@ background-color: null;
 font-style: inherit;">range</span>(<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">6</span>):</span>
-<span id="cb11-6"></span>
-<span id="cb11-7">    mu_i <span class="op" style="color: #5E5E5E;
+<span id="cb10-6"></span>
+<span id="cb10-7">    mu_i <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> mu_draws[:, i].mean()</span>
-<span id="cb11-8">    phi_i <span class="op" style="color: #5E5E5E;
+<span id="cb10-8">    phi_i <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> phi_draws[:, i].mean()</span>
-<span id="cb11-9">    a <span class="op" style="color: #5E5E5E;
+<span id="cb10-9">    a <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> mu_i <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">*</span> phi_i</span>
-<span id="cb11-10">    b <span class="op" style="color: #5E5E5E;
+<span id="cb10-10">    b <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> (<span class="dv" style="color: #AD0000;
 background-color: null;
@@ -1330,24 +1307,24 @@ background-color: null;
 font-style: inherit;">-</span> mu_i) <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">*</span> phi_i</span>
-<span id="cb11-11"></span>
-<span id="cb11-12">    x <span class="op" style="color: #5E5E5E;
+<span id="cb10-11"></span>
+<span id="cb10-12">    x <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> np.linspace(</span>
-<span id="cb11-13">        stats.beta.ppf(<span class="fl" style="color: #AD0000;
+<span id="cb10-13">        stats.beta.ppf(<span class="fl" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">0.001</span>, a, b), </span>
-<span id="cb11-14">        stats.beta.ppf(<span class="fl" style="color: #AD0000;
+<span id="cb10-14">        stats.beta.ppf(<span class="fl" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">0.999</span>, a, b), </span>
-<span id="cb11-15">        <span class="dv" style="color: #AD0000;
+<span id="cb10-15">        <span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">100</span></span>
-<span id="cb11-16">    )</span>
-<span id="cb11-17">    x_samples <span class="op" style="color: #5E5E5E;
+<span id="cb10-16">    )</span>
+<span id="cb10-17">    x_samples <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> stats.beta.pdf(x, a, b)</span>
-<span id="cb11-18">    axs[i].fill_between(<span class="dv" style="color: #AD0000;
+<span id="cb10-18">    axs[i].fill_between(<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">100</span><span class="op" style="color: #5E5E5E;
 background-color: null;
@@ -1356,7 +1333,7 @@ background-color: null;
 font-style: inherit;">/</span> x_samples.<span class="bu" style="color: null;
 background-color: null;
 font-style: inherit;">max</span>(), </span>
-<span id="cb11-19">                        facecolor<span class="op" style="color: #5E5E5E;
+<span id="cb10-19">                        facecolor<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span><span class="ss" style="color: #20794D;
 background-color: null;
@@ -1371,7 +1348,7 @@ background-color: null;
 font-style: inherit;">=</span><span class="fl" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">0.3</span>, </span>
-<span id="cb11-20">                        label<span class="op" style="color: #5E5E5E;
+<span id="cb10-20">                        label<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span><span class="vs" style="color: #20794D;
 background-color: null;
@@ -1401,7 +1378,7 @@ background-color: null;
 font-style: inherit;">$</span><span class="vs" style="color: #20794D;
 background-color: null;
 font-style: inherit;">"</span>)</span>
-<span id="cb11-21">    axs[i].plot(<span class="dv" style="color: #AD0000;
+<span id="cb10-21">    axs[i].plot(<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">100</span><span class="op" style="color: #5E5E5E;
 background-color: null;
@@ -1420,7 +1397,7 @@ background-color: null;
 font-style: inherit;">}</span><span class="ss" style="color: #20794D;
 background-color: null;
 font-style: inherit;">"</span>, </span>
-<span id="cb11-22">                alpha<span class="op" style="color: #5E5E5E;
+<span id="cb10-22">                alpha<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span><span class="fl" style="color: #AD0000;
 background-color: null;
@@ -1429,8 +1406,8 @@ background-color: null;
 font-style: inherit;">=</span><span class="fl" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1.5</span>)</span>
-<span id="cb11-23"></span>
-<span id="cb11-24">    rtgs <span class="op" style="color: #5E5E5E;
+<span id="cb10-23"></span>
+<span id="cb10-24">    rtgs <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> df[df[<span class="st" style="color: #20794D;
 background-color: null;
@@ -1441,12 +1418,12 @@ background-color: null;
 font-style: inherit;">+</span><span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>]</span>
-<span id="cb11-25">    xs <span class="op" style="color: #5E5E5E;
+<span id="cb10-25">    xs <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> rtgs[<span class="st" style="color: #20794D;
 background-color: null;
 font-style: inherit;">"ratings"</span>].values</span>
-<span id="cb11-26">    axs[i].plot(xs, stats.uniform.rvs(<span class="op" style="color: #5E5E5E;
+<span id="cb10-26">    axs[i].plot(xs, stats.uniform.rvs(<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">-</span><span class="fl" style="color: #AD0000;
 background-color: null;
@@ -1459,7 +1436,7 @@ background-color: null;
 font-style: inherit;">len</span>(xs)), <span class="st" style="color: #20794D;
 background-color: null;
 font-style: inherit;">'o'</span>, </span>
-<span id="cb11-27">                markersize<span class="op" style="color: #5E5E5E;
+<span id="cb10-27">                markersize<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span><span class="dv" style="color: #AD0000;
 background-color: null;
@@ -1490,7 +1467,7 @@ background-color: null;
 font-style: inherit;">$</span><span class="vs" style="color: #20794D;
 background-color: null;
 font-style: inherit;">"</span>, </span>
-<span id="cb11-28">                mec<span class="op" style="color: #5E5E5E;
+<span id="cb10-28">                mec<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span><span class="st" style="color: #20794D;
 background-color: null;
@@ -1499,7 +1476,7 @@ background-color: null;
 font-style: inherit;">=</span><span class="fl" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1.0</span>)</span>
-<span id="cb11-29">    axs[i].text(<span class="fl" style="color: #AD0000;
+<span id="cb10-29">    axs[i].text(<span class="fl" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">0.1</span>, <span class="fl" style="color: #AD0000;
 background-color: null;
@@ -1518,7 +1495,7 @@ background-color: null;
 font-style: inherit;">"</span>, transform<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span>axs[i].transAxes, </span>
-<span id="cb11-30">                verticalalignment<span class="op" style="color: #5E5E5E;
+<span id="cb10-30">                verticalalignment<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span><span class="st" style="color: #20794D;
 background-color: null;
@@ -1527,7 +1504,7 @@ background-color: null;
 font-style: inherit;">=</span><span class="st" style="color: #20794D;
 background-color: null;
 font-style: inherit;">"left"</span>)</span>
-<span id="cb11-31">    axs[i].vlines([<span class="dv" style="color: #AD0000;
+<span id="cb10-31">    axs[i].vlines([<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">0</span>, <span class="dv" style="color: #AD0000;
 background-color: null;
@@ -1544,14 +1521,14 @@ background-color: null;
 font-style: inherit;">0</span>, <span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>, </span>
-<span id="cb11-32">                  transform<span class="op" style="color: #5E5E5E;
+<span id="cb10-32">                  transform<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span>axs[i].get_xaxis_transform(), lw<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span><span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>, </span>
-<span id="cb11-33">                  colors<span class="op" style="color: #5E5E5E;
+<span id="cb10-33">                  colors<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span><span class="st" style="color: #20794D;
 background-color: null;
@@ -1560,38 +1537,38 @@ background-color: null;
 font-style: inherit;">=</span><span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">0</span>)</span>
-<span id="cb11-34"></span>
-<span id="cb11-35">    axs[i].set_ylim((<span class="op" style="color: #5E5E5E;
+<span id="cb10-34"></span>
+<span id="cb10-35">    axs[i].set_ylim((<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">-</span><span class="fl" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">0.3</span>, <span class="fl" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1.3</span>))</span>
-<span id="cb11-36">    axs[i].set_xlim((<span class="op" style="color: #5E5E5E;
+<span id="cb10-36">    axs[i].set_xlim((<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">-</span><span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">5</span>, <span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">105</span>))</span>
-<span id="cb11-37">    axs[i].set_yticks([])</span>
-<span id="cb11-38">    axs[i].spines[<span class="st" style="color: #20794D;
+<span id="cb10-37">    axs[i].set_yticks([])</span>
+<span id="cb10-38">    axs[i].spines[<span class="st" style="color: #20794D;
 background-color: null;
 font-style: inherit;">"top"</span>].set_visible(<span class="va" style="color: #111111;
 background-color: null;
 font-style: inherit;">False</span>)</span>
-<span id="cb11-39">    axs[i].spines[<span class="st" style="color: #20794D;
+<span id="cb10-39">    axs[i].spines[<span class="st" style="color: #20794D;
 background-color: null;
 font-style: inherit;">"left"</span>].set_visible(<span class="va" style="color: #111111;
 background-color: null;
 font-style: inherit;">False</span>)</span>
-<span id="cb11-40">    axs[i].spines[<span class="st" style="color: #20794D;
+<span id="cb10-40">    axs[i].spines[<span class="st" style="color: #20794D;
 background-color: null;
 font-style: inherit;">"right"</span>].set_visible(<span class="va" style="color: #111111;
 background-color: null;
 font-style: inherit;">False</span>)</span>
-<span id="cb11-41">    <span class="cf" style="color: #003B4F;
+<span id="cb10-41">    <span class="cf" style="color: #003B4F;
 background-color: null;
 font-weight: bold;
 font-style: inherit;">if</span> i <span class="op" style="color: #5E5E5E;
@@ -1599,34 +1576,34 @@ background-color: null;
 font-style: inherit;">&lt;</span> <span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">5</span>:</span>
-<span id="cb11-42">        axs[i].tick_params(length<span class="op" style="color: #5E5E5E;
+<span id="cb10-42">        axs[i].tick_params(length<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span><span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">0</span>)</span>
-<span id="cb11-43">        axs[i].spines[<span class="st" style="color: #20794D;
+<span id="cb10-43">        axs[i].spines[<span class="st" style="color: #20794D;
 background-color: null;
 font-style: inherit;">"bottom"</span>].set_visible(<span class="va" style="color: #111111;
 background-color: null;
 font-style: inherit;">False</span>)</span>
-<span id="cb11-44">    <span class="cf" style="color: #003B4F;
+<span id="cb10-44">    <span class="cf" style="color: #003B4F;
 background-color: null;
 font-weight: bold;
 font-style: inherit;">else</span>:</span>
-<span id="cb11-45">        axs[i].spines[<span class="st" style="color: #20794D;
+<span id="cb10-45">        axs[i].spines[<span class="st" style="color: #20794D;
 background-color: null;
 font-style: inherit;">"bottom"</span>].set_visible(<span class="va" style="color: #111111;
 background-color: null;
 font-style: inherit;">True</span>)</span>
-<span id="cb11-46">        axs[i].spines[<span class="st" style="color: #20794D;
+<span id="cb10-46">        axs[i].spines[<span class="st" style="color: #20794D;
 background-color: null;
 font-style: inherit;">"bottom"</span>].set_color(<span class="st" style="color: #20794D;
 background-color: null;
 font-style: inherit;">"0.7"</span>)</span>
-<span id="cb11-47">        axs[i].set_xlabel(<span class="st" style="color: #20794D;
+<span id="cb10-47">        axs[i].set_xlabel(<span class="st" style="color: #20794D;
 background-color: null;
 font-style: inherit;">"Rating"</span>)</span>
-<span id="cb11-48">        _ <span class="op" style="color: #5E5E5E;
+<span id="cb10-48">        _ <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> axs[i].set_xticks([<span class="dv" style="color: #AD0000;
 background-color: null;
@@ -1641,8 +1618,8 @@ background-color: null;
 font-style: inherit;">80</span>, <span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">100</span>])</span>
-<span id="cb11-49">        axs[i].legend()</span>
-<span id="cb11-50">fig.suptitle(<span class="vs" style="color: #20794D;
+<span id="cb10-49">        axs[i].legend()</span>
+<span id="cb10-50">fig.suptitle(<span class="vs" style="color: #20794D;
 background-color: null;
 font-style: inherit;">r"Posterior predictive distributions </span><span class="dv" style="color: #AD0000;
 background-color: null;
@@ -1670,7 +1647,7 @@ background-color: null;
 font-style: inherit;">$</span><span class="vs" style="color: #20794D;
 background-color: null;
 font-style: inherit;">"</span>, </span>
-<span id="cb11-51">                 fontsize<span class="op" style="color: #5E5E5E;
+<span id="cb10-51">                 fontsize<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span><span class="dv" style="color: #AD0000;
 background-color: null;
@@ -1691,16 +1668,16 @@ Figure&nbsp;6: Posterior predictive distributions for each system. Here, the val
 </div>
 </div>
 </div>
-<p>The distributions plotted as shaded areas seem to fit nicely with the observations, spanning the range of given ratings. The scale end effects are shown very nicely; where there are multiple ratings at either extreme, the distribution is “pulled” towards the edge.</p>
+<p>The distributions plotted as shaded areas seem to fit nicely with the observations, spanning the range of given ratings. The scale end effects are shown very nicely; where there are multiple ratings at either extreme, the distribution is pulled towards the edge.</p>
 </section>
 <section id="rs-with-posteriors" class="level2">
 <h2 class="anchored" data-anchor-id="rs-with-posteriors">R&amp;S with posteriors</h2>
 <p>Now that we have the bayesian model for our listening test data and the posterior distributions for the model parameters, actually the R&amp;S part is very very simple. Thinking back on the Gibbons <em>et al.</em> quote earlier: <em>“… ranking and selection procedures are statistical techniques for comparing the parameters of some <img src="https://latex.codecogs.com/png.latex?k"> populations …”</em>, we now have in fact a full statistical model describing those parameters, and can calculate the R&amp;S statistics from the posterior draws.</p>
-<p>As an example, if we look at the posterior distributions of <img src="https://latex.codecogs.com/png.latex?%5Cmu_j"> (Figure&nbsp;7), we see that the distribution of <img src="https://latex.codecogs.com/png.latex?%5Cmu_2"> seems to have most mass above the others (apart from the reference system <img src="https://latex.codecogs.com/png.latex?%5Cmu_1">). But how confident can we be in stating that system 2 is on average the second best? We calculate from the posterior draws <img src="https://latex.codecogs.com/png.latex?%5Cmathrm%7BPr%7D(%5Cmu_2%20%3E%20%5Cmathrm%7Bmax%7D_%7Bj%20%5Cneq%203%7D%20%5Cmu_j)">, or in practice count the number of posterior draws where the value of <img src="https://latex.codecogs.com/png.latex?%5Cmu_2"> ranks second and normalise with the total number of draws. Basically it’s a competition between <img src="https://latex.codecogs.com/png.latex?%5Cmu_3"> and <img src="https://latex.codecogs.com/png.latex?%5Cmu_2">, and on each posterior draw, we get a single value from each distribution; as the distributions overla, sometimes the value for <img src="https://latex.codecogs.com/png.latex?%5Cmu_3"> is higher than the one for <img src="https://latex.codecogs.com/png.latex?%5Cmu_2">, but more often <img src="https://latex.codecogs.com/png.latex?%5Cmu_2"> is higher than <img src="https://latex.codecogs.com/png.latex?%5Cmu_3">. The result is that system 2 ranks second best in 81.5% of the posterior draws (and system 3 18.5% of the time).</p>
+<p>As an example, if we look at the posterior distributions of <img src="https://latex.codecogs.com/png.latex?%5Cmu_j"> (Figure&nbsp;7), we see that the distribution of <img src="https://latex.codecogs.com/png.latex?%5Cmu_2"> seems to have most mass above the others (apart from the reference system <img src="https://latex.codecogs.com/png.latex?%5Cmu_1">). But how confident can we be in stating that system 2 is on average the second best? We calculate from the posterior draws <img src="https://latex.codecogs.com/png.latex?%5Cmathrm%7BPr%7D(%5Cmu_2%20%3E%20%5Cmathrm%7Bmax%7D_%7Bj%20%5Cnotin%20%5C%7B1,2%5C%7D%7D%20%5Cmu_j)">, or in practice count the number of posterior draws where the value of <img src="https://latex.codecogs.com/png.latex?%5Cmu_2"> ranks second and normalise with the total number of draws. Basically it’s a competition between <img src="https://latex.codecogs.com/png.latex?%5Cmu_3"> and <img src="https://latex.codecogs.com/png.latex?%5Cmu_2">, and on each posterior draw, we get a single value from each distribution; as the distributions overla, sometimes the value for <img src="https://latex.codecogs.com/png.latex?%5Cmu_3"> is higher than the one for <img src="https://latex.codecogs.com/png.latex?%5Cmu_2">, but more often <img src="https://latex.codecogs.com/png.latex?%5Cmu_2"> is higher than <img src="https://latex.codecogs.com/png.latex?%5Cmu_3">. The result is that system 2 ranks second best in 81.5% of the posterior draws (and system 3 18.5% of the time).</p>
 <div id="cell-fig-muposterior" class="cell preview-image" data-execution_count="11">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1">best_system <span class="op" style="color: #5E5E5E;
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1">best_system <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> np.argmax(mu_draws[:, <span class="dv" style="color: #AD0000;
 background-color: null;
@@ -1715,15 +1692,15 @@ background-color: null;
 font-style: inherit;">+</span> <span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">2</span></span>
-<span id="cb12-2">vals, counts <span class="op" style="color: #5E5E5E;
+<span id="cb11-2">vals, counts <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> np.unique(best_system, return_counts<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span><span class="va" style="color: #111111;
 background-color: null;
 font-style: inherit;">True</span>)</span>
-<span id="cb12-3"></span>
-<span id="cb12-4"><span class="cf" style="color: #003B4F;
+<span id="cb11-3"></span>
+<span id="cb11-4"><span class="cf" style="color: #003B4F;
 background-color: null;
 font-weight: bold;
 font-style: inherit;">for</span> v, c <span class="kw" style="color: #003B4F;
@@ -1732,7 +1709,7 @@ font-weight: bold;
 font-style: inherit;">in</span> <span class="bu" style="color: null;
 background-color: null;
 font-style: inherit;">zip</span>(vals, counts):</span>
-<span id="cb12-5">    <span class="bu" style="color: null;
+<span id="cb11-5">    <span class="bu" style="color: null;
 background-color: null;
 font-style: inherit;">print</span>(<span class="ss" style="color: #20794D;
 background-color: null;
@@ -1759,8 +1736,8 @@ background-color: null;
 font-style: inherit;">:.1f}</span><span class="ss" style="color: #20794D;
 background-color: null;
 font-style: inherit;">%"</span>)</span>
-<span id="cb12-6"></span>
-<span id="cb12-7">sns.set_theme(context<span class="op" style="color: #5E5E5E;
+<span id="cb11-6"></span>
+<span id="cb11-7">sns.set_theme(context<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span><span class="st" style="color: #20794D;
 background-color: null;
@@ -1773,7 +1750,7 @@ background-color: null;
 font-style: inherit;">=</span><span class="st" style="color: #20794D;
 background-color: null;
 font-style: inherit;">"Dark2"</span>)</span>
-<span id="cb12-8">_, ax <span class="op" style="color: #5E5E5E;
+<span id="cb11-8">_, ax <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> plt.subplots(<span class="dv" style="color: #AD0000;
 background-color: null;
@@ -1786,7 +1763,7 @@ background-color: null;
 font-style: inherit;">4</span>,<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">3</span>))</span>
-<span id="cb12-9"><span class="cf" style="color: #003B4F;
+<span id="cb11-9"><span class="cf" style="color: #003B4F;
 background-color: null;
 font-weight: bold;
 font-style: inherit;">for</span> i <span class="kw" style="color: #003B4F;
@@ -1797,7 +1774,7 @@ background-color: null;
 font-style: inherit;">range</span>(<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">6</span>):</span>
-<span id="cb12-10">    h, bins <span class="op" style="color: #5E5E5E;
+<span id="cb11-10">    h, bins <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> np.histogram(<span class="dv" style="color: #AD0000;
 background-color: null;
@@ -1808,7 +1785,7 @@ background-color: null;
 font-style: inherit;">=</span><span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">50</span>)</span>
-<span id="cb12-11">    ax.stairs(h, bins, fill<span class="op" style="color: #5E5E5E;
+<span id="cb11-11">    ax.stairs(h, bins, fill<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span><span class="va" style="color: #111111;
 background-color: null;
@@ -1829,14 +1806,14 @@ background-color: null;
 font-style: inherit;">=</span><span class="fl" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1.0</span>)</span>
-<span id="cb12-12">    system_mean <span class="op" style="color: #5E5E5E;
+<span id="cb11-12">    system_mean <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">100</span><span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">*</span>mu_draws[:,i].mean()</span>
-<span id="cb12-13">    <span class="cf" style="color: #003B4F;
+<span id="cb11-13">    <span class="cf" style="color: #003B4F;
 background-color: null;
 font-weight: bold;
 font-style: inherit;">if</span> i <span class="op" style="color: #5E5E5E;
@@ -1844,12 +1821,12 @@ background-color: null;
 font-style: inherit;">==</span> <span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">0</span>:</span>
-<span id="cb12-14">        system_mean <span class="op" style="color: #5E5E5E;
+<span id="cb11-14">        system_mean <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">90</span></span>
-<span id="cb12-15">    ax.text(system_mean, <span class="dv" style="color: #AD0000;
+<span id="cb11-15">    ax.text(system_mean, <span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">2300</span>, <span class="ss" style="color: #20794D;
 background-color: null;
@@ -1878,12 +1855,12 @@ background-color: null;
 font-style: inherit;">}</span><span class="ss" style="color: #20794D;
 background-color: null;
 font-style: inherit;">"</span>, </span>
-<span id="cb12-16">            fontweight<span class="op" style="color: #5E5E5E;
+<span id="cb11-16">            fontweight<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span><span class="st" style="color: #20794D;
 background-color: null;
 font-style: inherit;">"extra bold"</span>)</span>
-<span id="cb12-17">ax.text(<span class="dv" style="color: #AD0000;
+<span id="cb11-17">ax.text(<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">0</span>, <span class="dv" style="color: #AD0000;
 background-color: null;
@@ -1894,20 +1871,20 @@ background-color: null;
 font-style: inherit;">=</span><span class="st" style="color: #20794D;
 background-color: null;
 font-style: inherit;">"left"</span>)</span>
-<span id="cb12-18"><span class="co" style="color: #5E5E5E;
+<span id="cb11-18"><span class="co" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">#sns.despine(ax=ax, left=True, trim=True)</span></span>
-<span id="cb12-19">ax.set_yticks([])</span>
-<span id="cb12-20">ax.set_xlim((<span class="dv" style="color: #AD0000;
+<span id="cb11-19">ax.set_yticks([])</span>
+<span id="cb11-20">ax.set_xlim((<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">0</span>,<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">100</span>))</span>
-<span id="cb12-21"></span>
-<span id="cb12-22">ax.set_xlabel(<span class="st" style="color: #20794D;
+<span id="cb11-21"></span>
+<span id="cb11-22">ax.set_xlabel(<span class="st" style="color: #20794D;
 background-color: null;
 font-style: inherit;">"Rating"</span>)</span>
-<span id="cb12-23">ax.set_title(<span class="vs" style="color: #20794D;
+<span id="cb11-23">ax.set_title(<span class="vs" style="color: #20794D;
 background-color: null;
 font-style: inherit;">r"Posterior distributions for </span><span class="dv" style="color: #AD0000;
 background-color: null;
@@ -1918,8 +1895,8 @@ background-color: null;
 font-style: inherit;">$</span><span class="vs" style="color: #20794D;
 background-color: null;
 font-style: inherit;">"</span>)</span>
-<span id="cb12-24"></span>
-<span id="cb12-25">plt.savefig(<span class="st" style="color: #20794D;
+<span id="cb11-24"></span>
+<span id="cb11-25">plt.savefig(<span class="st" style="color: #20794D;
 background-color: null;
 font-style: inherit;">"preview.png"</span>)<span class="op" style="color: #5E5E5E;
 background-color: null;
@@ -1947,15 +1924,15 @@ Figure&nbsp;7: Posterior distributions for system-specific mean ratings <img src
 </section>
 <section id="indifference-zone-rs" class="level2">
 <h2 class="anchored" data-anchor-id="indifference-zone-rs">Indifference-zone R&amp;S</h2>
-<p>An interesting R&amp;S formulation is the so-called <em>indifference-zone</em> (IZ) -approach, where make a decision that when the difference between mean ratings of two systems is less than some pre-defined value—let’s say 5 points on the 0–100 scale—then it means that there is in practice no real difference between the systems. So if we had a situation where our listening test top-two systems had mean ratings <img src="https://latex.codecogs.com/png.latex?%5Cmu_A"> = 82 and <img src="https://latex.codecogs.com/png.latex?%5Cmu_B"> = 85, and all other systems had ratings below 40, then we would not be making a huge mistake by stating that system A is the best; a difference of three points in a MUSHRA test is in practice degligible and you’d be just as correct in announcing either A or B as the best. So we could say that in a MUSHRA test we would be <em>indifferent</em> to differences less than 5 points and do our R&amp;S analysis accordingly.</p>
+<p>Another interesting R&amp;S formulation is the so-called <em>indifference-zone</em> (IZ) -approach, where make a decision that when the difference between mean ratings of two systems is less than some pre-defined value—let’s say 5 points on the 0–100 scale—then it means that there is in practice no real difference between the systems. So if we had a situation where our listening test top-two systems had mean ratings <img src="https://latex.codecogs.com/png.latex?%5Cmu_A"> = 82 and <img src="https://latex.codecogs.com/png.latex?%5Cmu_B"> = 85, and all other systems had ratings below 40, then we would not be making a huge mistake by stating that system A is the best; a difference of three points in a MUSHRA test is in practice degligible and you’d be just as correct in announcing either A or B as the best. So we could say that in a MUSHRA test we would be <em>indifferent</em> to differences less than 5 points and do our R&amp;S analysis accordingly.</p>
 <p>For our data, we would only need to consider systems 2 and 3. For the IZ analysis we would first set <img src="https://latex.codecogs.com/png.latex?%5Cdelta_%7BIZ%7D%20=%205">, and then calculate for system 2: <img src="https://latex.codecogs.com/png.latex?p_%7BIZ,2%7D%20=%20%5Cmathrm%7BPr%7D(%5Cmu_2%20%3E%20%5Cmu_3),%20%5Cquad%20%5Cmathrm%7Bif%7D%20%5C,%20%7C%5Cmu_2%20-%20%5Cmu_3%7C%20%3E%20%5Cdelta_%7BIZ%7D"></p>
 <div id="a322f096" class="cell" data-execution_count="12">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><span class="co" style="color: #5E5E5E;
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><span class="co" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;"># scale delta_IZ to [0, 1]</span></span>
-<span id="cb14-2">delta_IZ <span class="op" style="color: #5E5E5E;
+<span id="cb13-2">delta_IZ <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
 background-color: null;
@@ -1964,8 +1941,8 @@ background-color: null;
 font-style: inherit;">/</span><span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">100</span></span>
-<span id="cb14-3"></span>
-<span id="cb14-4">idxs <span class="op" style="color: #5E5E5E;
+<span id="cb13-3"></span>
+<span id="cb13-4">idxs <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> np.where(np.<span class="bu" style="color: null;
 background-color: null;
@@ -1980,7 +1957,7 @@ background-color: null;
 font-style: inherit;">&gt;</span> delta_IZ)[<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">0</span>]</span>
-<span id="cb14-5"><span class="bu" style="color: null;
+<span id="cb13-5"><span class="bu" style="color: null;
 background-color: null;
 font-style: inherit;">print</span>(<span class="ss" style="color: #20794D;
 background-color: null;
